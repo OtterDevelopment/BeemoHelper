@@ -207,7 +207,8 @@ export default class BetterClient extends Client {
                             this.logger.info(`Flushed information to DataDog.`),
                         error => {
                             this.logger.error(error);
-                            this.logger.sentry.captureException(error);
+                            if (!error.message.includes("EAI_AGAIN"))
+                                this.logger.sentry.captureException(error);
                         }
                     );
             }, 60000);
