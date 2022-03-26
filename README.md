@@ -1,16 +1,13 @@
-# TypeScript Discord Boilerplate
+# Beemo Helper
 
-Welcome to the template repository for my TypeScript Discord bots. Please feel free to use this template repository if wanted, please provide credit to this repository when doing so.
+Welcome to the repository for Beemo Helper, a bot created to help [Beemo](https://beemo.gg) deal with banning users.
 
-## Notes
-
-If one of your interactions might take longer than three seconds to reply, you **must** use `interaction.deferReply(...)`, and then `interaction.editReply(...)`,
-otherwise the interaction's token will invalidate and you will not be able to reply.
+Once Beemo detects a raid Beemo Helper will start banning users from Beemo Logs from the bottom up, effectively doubling the speed of bans.
 
 ## Credits
 
 [Geek](https://github.com/GamingGeek) @ [FireDiscordBot](https://github.com/): The [widget](https://inv.wtf) below, as well as the discord.js [fork](https://github.com/FireDiscordBot/discord.js) that we use.
 
-## Join The Following Server For Support
+## Join The Following Server For Support or [**Invite Beemo Helper**](https://discord.com/api/oauth2/authorize?client_id=769772015447703592&permissions=52228&redirect_uri=https%3A%2F%2Fdiscord.gg%2FhkDuZfpfBB&scope=bot%20applications.commands)
 
 [![Discord Invite Widget](https://inv.wtf/widget/polar)](https://inv.wtf/polar)
