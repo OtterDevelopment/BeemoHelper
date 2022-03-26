@@ -101,6 +101,11 @@ export default class BeemoMessageCreate extends EventHandler {
 
         await raid.start();
 
+        if (!raid.bannedMembers.length)
+            return this.client.logger.info(
+                `Not logging the raid on ${guild.name} [${guild.id}] (${logUrl}) as I didn't ban any members.`
+            );
+
         this.client.dataDog.increment("successfulRaids.total", 1, [
             `guild:${guildId}`,
             `raiders:${raid.userIds.length}`
