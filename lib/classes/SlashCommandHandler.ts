@@ -1,23 +1,20 @@
-import { CommandInteraction, Snowflake, Team, User } from "discord.js";
+import { CommandInteraction, Snowflake } from "discord.js";
 import SlashCommand from "./SlashCommand";
 import BetterClient from "../extensions/BetterClient.js";
 
 export default class SlashCommandHandler {
     /**
      * Our client.
-     * @private
      */
     private readonly client: BetterClient;
 
     /**
      * How long a user must wait between each slash command.
-     * @private
      */
     private readonly coolDownTime: number;
 
     /**
      * Our user's cooldowns.
-     * @private
      */
     private coolDowns: Set<Snowflake>;
 
@@ -62,8 +59,8 @@ export default class SlashCommandHandler {
                         );
                     })
             );
-        return setTimeout(() => {
-            if (process.env.NODE_ENV === "production")
+        return setTimeout(async () => {
+            if (process.env.NODE_ENV === "production") {
                 this.client.application?.commands.set(
                     this.client.slashCommands.map(command => {
                         return {
@@ -73,44 +70,84 @@ export default class SlashCommandHandler {
                         };
                     })
                 );
-            else
-                this.client.guilds.cache.forEach(async guild => {
-                    try {
-                        await guild.commands.set(
-                            this.client.slashCommands.map(command => {
-                                return {
-                                    name: command.name,
-                                    description: command.description,
-                                    options: command.options
-                                };
-                            })
-                        );
-                    } catch (error: any) {
-                        if (error.code === 50001)
-                            this.client.logger.error(
-                                null,
-                                `I encountered DiscordAPIError: Missing Access in ${guild.name} [${guild.id}] when trying to set slash commands!`
-                            );
-                        else {
-                            this.client.logger.error(error);
-                            this.client.logger.sentry.captureWithExtras(error, {
-                                Guild: guild.name,
-                                "Guild ID": guild.id,
-                                "Slash Command Count":
-                                    this.client.slashCommands.size,
-                                "Slash Commands": this.client.slashCommands.map(
-                                    command => {
-                                        return {
-                                            name: command.name,
-                                            description: command.description,
-                                            options: command.options
-                                        };
+                await Promise.all(
+                    this.client.guilds.cache.map(guild =>
+                        guild.commands.set([]).catch(error => {
+                            if (error.code === 50001)
+                                this.client.logger.error(
+                                    null,
+                                    `I encountered DiscordAPIError: Missing Access in ${guild.name} [${guild.id}] when trying to set slash commands!`
+                                );
+                            else {
+                                this.client.logger.error(error);
+                                this.client.logger.sentry.captureWithExtras(
+                                    error,
+                                    {
+                                        Guild: guild.name,
+                                        "Guild ID": guild.id,
+                                        "Slash Command Count":
+                                            this.client.slashCommands.size,
+                                        "Slash Commands":
+                                            this.client.slashCommands.map(
+                                                command => {
+                                                    return {
+                                                        name: command.name,
+                                                        description:
+                                                            command.description,
+                                                        options: command.options
+                                                    };
+                                                }
+                                            )
                                     }
-                                )
-                            });
-                        }
-                    }
-                });
+                                );
+                            }
+                        })
+                    )
+                );
+            } else
+                await Promise.all(
+                    this.client.guilds.cache.map(async guild =>
+                        guild.commands
+                            .set(
+                                this.client.slashCommands.map(slashCommand => ({
+                                    name: slashCommand.name,
+                                    description: slashCommand.description,
+                                    options: slashCommand.options
+                                }))
+                            )
+                            .catch(error => {
+                                if (error.code === 50001)
+                                    this.client.logger.error(
+                                        null,
+                                        `I encountered DiscordAPIError: Missing Access in ${guild.name} [${guild.id}] when trying to set slash commands!`
+                                    );
+                                else {
+                                    this.client.logger.error(error);
+                                    this.client.logger.sentry.captureWithExtras(
+                                        error,
+                                        {
+                                            Guild: guild.name,
+                                            "Guild ID": guild.id,
+                                            "Slash Command Count":
+                                                this.client.slashCommands.size,
+                                            "Slash Commands":
+                                                this.client.slashCommands.map(
+                                                    command => {
+                                                        return {
+                                                            name: command.name,
+                                                            description:
+                                                                command.description,
+                                                            options:
+                                                                command.options
+                                                        };
+                                                    }
+                                                )
+                                        }
+                                    );
+                                }
+                            })
+                    )
+                );
         }, 5000);
     }
 
@@ -126,7 +163,6 @@ export default class SlashCommandHandler {
      * Fetch the slash command that has the provided name.
      * @param name The name to search for.
      * @return The slash command we've found.
-     * @private
      */
     private fetchCommand(name: string): SlashCommand | undefined {
         return this.client.slashCommands.get(name);
@@ -144,38 +180,50 @@ export default class SlashCommandHandler {
             );
             const sentryId =
                 await this.client.logger.sentry.captureWithInteraction(
-                    new Error(`Non existent command invoked`),
+                    new Error(`Non existent slash command invoked`),
                     interaction
                 );
-            this.client.guilds.cache.map(async guild => {
-                try {
-                    await guild.commands.delete(interaction.commandName);
-                } catch (error: any) {
-                    if (error.code === 50001)
-                        this.client.logger.error(
-                            null,
-                            `I encountered DiscordAPIError: Missing Access in ${guild.name} [${guild.name}] when trying to remove non existent slash command ${interaction.commandName}!`
-                        );
-                    else {
-                        this.client.logger.error(error);
-                        this.client.logger.sentry.captureWithExtras(error, {
-                            Guild: guild.name,
-                            "Guild ID": guild.id,
-                            "Slash Command Count":
-                                this.client.slashCommands.size,
-                            "Slash Commands": this.client.slashCommands.map(
-                                cmd => {
-                                    return {
-                                        name: cmd.name,
-                                        description: cmd.description,
-                                        options: cmd.options
-                                    };
+            if (process.env.NODE_ENV === "production")
+                this.client.application?.commands.delete(
+                    interaction.commandName
+                );
+            else
+                await Promise.all(
+                    this.client.guilds.cache.map(guild =>
+                        guild.commands
+                            .delete(interaction.commandName)
+                            .catch(error => {
+                                if (error.code === 50001)
+                                    this.client.logger.error(
+                                        null,
+                                        `I encountered DiscordAPIError: Missing Access in ${guild.name} [${guild.id}] when trying to set slash commands!`
+                                    );
+                                else {
+                                    this.client.logger.error(error);
+                                    this.client.logger.sentry.captureWithExtras(
+                                        error,
+                                        {
+                                            Guild: guild.name,
+                                            "Guild ID": guild.id,
+                                            "Slash Command Count":
+                                                this.client.slashCommands.size,
+                                            "Slash Commands":
+                                                this.client.slashCommands.map(
+                                                    cmd => {
+                                                        return {
+                                                            name: cmd.name,
+                                                            description:
+                                                                cmd.description,
+                                                            options: cmd.options
+                                                        };
+                                                    }
+                                                )
+                                        }
+                                    );
                                 }
-                            )
-                        });
-                    }
-                }
-            });
+                            })
+                    )
+                );
             return interaction.reply(
                 this.client.functions.generateErrorMessage(
                     {
@@ -189,15 +237,8 @@ export default class SlashCommandHandler {
         }
 
         if (
-            !command ||
-            (process.env.NODE_ENV === "development" &&
-                !this.client.config.admins.includes(interaction.user.id)) ||
-            (this.client.application?.owner instanceof User &&
-                this.client.application.owner.id !== interaction.user.id) ||
-            (this.client.application?.owner instanceof Team &&
-                !this.client.application?.owner.members.has(
-                    interaction.user.id
-                ))
+            process.env.NODE_ENV === "development" &&
+            !this.client.functions.isDeveloper(interaction.user.id)
         )
             return;
 
@@ -210,7 +251,9 @@ export default class SlashCommandHandler {
         const preChecked = await command.preCheck(interaction);
         if (!preChecked[0]) {
             if (preChecked[1])
-                await interaction.reply({ embeds: [preChecked[1]] });
+                await interaction.reply(
+                    this.client.functions.generateErrorMessage(preChecked[1])
+                );
             return;
         }
 
@@ -221,7 +264,6 @@ export default class SlashCommandHandler {
      * Execute our slash command.`
      * @param command The slash command we want to execute.
      * @param interaction The interaction that was created for our slash command.
-     * @private
      */
     private async runCommand(
         command: SlashCommand,
@@ -263,7 +305,10 @@ export default class SlashCommandHandler {
                     true
                 );
                 if (interaction.replied) return interaction.followUp(toSend);
-                else return interaction.reply({ ...toSend, ephemeral: true });
+                else
+                    return interaction.reply({
+                        ...toSend
+                    });
             });
         this.coolDowns.add(interaction.user.id);
         setTimeout(

@@ -1,7 +1,7 @@
 import { resolve } from "path";
 import { MongoClient } from "mongodb";
 import * as metrics from "datadog-metrics";
-import { Client, ClientOptions, Collection } from "discord.js";
+import { Client, ClientOptions, Collection, Snowflake } from "discord.js";
 import Button from "../classes/Button.js";
 import DropDown from "../classes/DropDown.js";
 import * as Logger from "../classes/Logger.js";
@@ -15,6 +15,8 @@ import ButtonHandler from "../classes/ButtonHandler.js";
 import DropDownHandler from "../classes/DropDownHandler.js";
 import TextCommandHandler from "../classes/TextCommandHandler.js";
 import SlashCommandHandler from "../classes/SlashCommandHandler.js";
+import AutoCompleteHandler from "../classes/AutoCompleteHandler.js";
+import AutoComplete from "../classes/AutoComplete.js";
 
 export default class BetterClient extends Client {
     /**
@@ -78,6 +80,16 @@ export default class BetterClient extends Client {
     public dropDowns: Collection<string, DropDown>;
 
     /**
+     * The autoCompleteHandler for our client.
+     */
+    public readonly autoCompleteHandler: AutoCompleteHandler;
+
+    /**
+     * The autoCompletes for our client.
+     */
+    public autoCompletes: Collection<string, AutoComplete>;
+
+    /**
      * The events for our client.
      */
     public events: Map<string, EventHandler>;
@@ -113,6 +125,11 @@ export default class BetterClient extends Client {
     public readonly __dirname: string;
 
     /**
+     * All currently active raids on guilds.
+     */
+    public activeRaids: Collection<Snowflake, Snowflake[]>;
+
+    /**
      * Create our client.
      * @param options The options for our client.
      */
@@ -138,6 +155,9 @@ export default class BetterClient extends Client {
         this.dropDownHandler = new DropDownHandler(this);
         this.dropDowns = new Collection();
 
+        this.autoCompleteHandler = new AutoCompleteHandler(this);
+        this.autoCompletes = new Collection();
+
         this.events = new Map();
 
         this.mongo = new MongoClient(process.env.MONGO_URI);
@@ -160,10 +180,13 @@ export default class BetterClient extends Client {
             roles: 0
         };
 
+        this.activeRaids = new Collection();
+
         this.dropDownHandler.loadDropDowns();
         this.buttonHandler.loadButtons();
         this.slashCommandHandler.loadSlashCommands();
         this.textCommandHandler.loadTextCommands();
+        this.autoCompleteHandler.loadAutoCompletes();
         this.loadEvents();
 
         // @ts-ignore
@@ -187,7 +210,7 @@ export default class BetterClient extends Client {
                             this.logger.sentry.captureException(error);
                         }
                     );
-            }, 10000);
+            }, 60000);
         }
     }
 
@@ -201,7 +224,6 @@ export default class BetterClient extends Client {
 
     /**
      * Load all the events in the events directory.
-     * @private
      */
     private loadEvents() {
         return this.functions
@@ -222,7 +244,6 @@ export default class BetterClient extends Client {
 
     /**
      * Reload all the events in the events directory.
-     * @private
      */
     public reloadEvents() {
         this.events.forEach(event => event.removeListener());

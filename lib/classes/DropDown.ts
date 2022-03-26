@@ -14,39 +14,33 @@ export default class DropDown {
 
     /**
      * The permissions a user would require to execute this dropdown.
-     * @private
      */
     private readonly permissions: PermissionString[];
 
     /**
      * The permissions the client requires to execute this dropdown.
-     * @private
      */
     private readonly clientPermissions: PermissionString[];
 
     /**
      * Whether this dropdown is only for developers.
-     * @private
      */
     private readonly devOnly: boolean;
 
     /**
      * Whether this dropdown is only to be used in guilds.
-     * @private
      */
     private readonly guildOnly: boolean;
 
     /**
      * Whether this button is only to be used by guild owners.
-     * @private
      */
     private readonly ownerOnly: boolean;
 
     /**
      * Our client.
-     * @private
      */
-    private readonly client: BetterClient;
+    public readonly client: BetterClient;
 
     /**
      * Create our dropdown.
@@ -74,48 +68,67 @@ export default class DropDown {
      * @param interaction The interaction that was created.
      * @returns The error or null if the command is valid.
      */
-    public validate(interaction: SelectMenuInteraction) {
+    public validate(
+        interaction: SelectMenuInteraction
+    ): MessageEmbedOptions | null {
         if (this.guildOnly && !interaction.inGuild())
-            return "This drop down can only be used in guilds!";
+            return {
+                title: "Missing Permissions",
+                description: "This drop down can only be used in guilds!"
+            };
         else if (
             this.ownerOnly &&
             interaction.guild?.ownerId !== interaction.user.id
         )
-            return "This drop down can only be ran by the owner of this guild!";
-        else if (this.devOnly && !this.client.config.admins)
-            return "This drop down can only be ran by my developer!";
+            return {
+                title: "Missing Permissions",
+                description:
+                    "This drop down can only be ran by the owner of this guild!"
+            };
         else if (
-            this.permissions &&
+            this.devOnly &&
+            !this.client.functions.isDeveloper(interaction.user.id)
+        )
+            return {
+                title: "Missing Permissions",
+                description: "This drop down can only be used by my developers!"
+            };
+        else if (
+            interaction.guild &&
+            this.permissions.length &&
             !interaction.memberPermissions?.has(this.permissions)
         )
-            return `You need ${
-                this.permissions.length > 1 ? "" : "the"
-            } ${this.permissions
-                .map(
-                    permission =>
-                        `**${this.client.functions.getPermissionName(
-                            permission
-                        )}**`
-                )
-                .join(", ")} permission${
-                this.permissions.length > 1 ? "s" : ""
-            } to run this drop down.`;
+            return {
+                title: "Missing Permissions",
+                description: `You need the ${this.permissions
+                    .map(
+                        permission =>
+                            `**${this.client.functions.getPermissionName(
+                                permission
+                            )}**`
+                    )
+                    .join(", ")} permission${
+                    this.permissions.length > 1 ? "s" : ""
+                } to run this drop down.`
+            };
         else if (
-            this.clientPermissions &&
-            !interaction.memberPermissions?.has(this.clientPermissions)
+            interaction.guild &&
+            this.clientPermissions.length &&
+            !interaction.guild?.me?.permissions.has(this.clientPermissions)
         )
-            return `You need ${
-                this.permissions.length > 1 ? "" : "the"
-            } ${this.permissions
-                .map(
-                    permission =>
-                        `**${this.client.functions.getPermissionName(
-                            permission
-                        )}**`
-                )
-                .join(", ")} permission${
-                this.permissions.length > 1 ? "s" : ""
-            } to run this drop down.`;
+            return {
+                title: "Missing Permissions",
+                description: `I need the ${this.clientPermissions
+                    .map(
+                        permission =>
+                            `**${this.client.functions.getPermissionName(
+                                permission
+                            )}**`
+                    )
+                    .join(", ")} permission${
+                    this.clientPermissions.length > 1 ? "s" : ""
+                } to run this drop down.`
+            };
         return null;
     }
 
@@ -133,6 +146,5 @@ export default class DropDown {
      * Run this dropdown.
      * @param _interaction The interaction that was created.
      */
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
     public async run(_interaction: SelectMenuInteraction): Promise<any> {}
 }

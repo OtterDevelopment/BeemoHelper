@@ -1,4 +1,3 @@
-import { MessageEmbedOptions, Team, User } from "discord.js";
 import { inspect } from "util";
 import TextCommand from "../../../../lib/classes/TextCommand.js";
 import BetterClient from "../../../../lib/extensions/BetterClient.js";
@@ -10,21 +9,6 @@ export default class Eval extends TextCommand {
             description: "Evaluates arbitrary JavaScript code.",
             devOnly: true
         });
-    }
-
-    override async preCheck(
-        message: BetterMessage
-    ): Promise<[boolean, MessageEmbedOptions?]> {
-        await this.client.application?.fetch();
-        return [
-            (this.client.config.admins.includes(message.author.id) &&
-                this.client.application?.owner instanceof User &&
-                this.client.application?.owner.id === message.author.id) ||
-                (this.client.application?.owner instanceof Team &&
-                    this.client.application?.owner.members.has(
-                        message.author.id
-                    ))
-        ];
     }
 
     override async run(message: BetterMessage, args: string[]) {
@@ -41,7 +25,7 @@ export default class Eval extends TextCommand {
             if (evaled instanceof Promise) {
                 const start = Date.now();
                 return await Promise.all([
-                    message.reply({ content: "♨️Running..." }),
+                    message.reply({ content: "♨️ Running..." }),
                     evaled
                 ])
                     .then(async ([msg, output]) => {
@@ -96,7 +80,6 @@ export default class Eval extends TextCommand {
      * Parse the content of a string to remove all private information.
      * @param content The content to parse.
      * @returns The parsed content.
-     * @private
      */
     private parseContent(content: string): string {
         return (

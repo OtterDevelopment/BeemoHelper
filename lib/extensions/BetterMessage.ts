@@ -15,7 +15,7 @@ export default class BetterMessage extends Message {
     ): Promise<BetterMessage> {
         try {
             if (this.deleted) return await this.channel.send(options);
-            else return await this.reply(options);
+            else return await super.reply(options);
         } catch {
             return this.channel.send(options);
         }

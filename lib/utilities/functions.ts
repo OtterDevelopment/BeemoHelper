@@ -6,6 +6,8 @@ import {
     MessageEmbed,
     MessageEmbedOptions,
     PermissionString,
+    Snowflake,
+    Team,
     User
 } from "discord.js";
 import { existsSync, mkdirSync, readdirSync } from "fs";
@@ -17,7 +19,6 @@ import { GeneratedMessage, GenerateTimestampOptions } from "../../typings";
 export default class Functions {
     /**
      * Our Client.
-     * @private
      */
     private client: BetterClient;
 
@@ -285,5 +286,30 @@ export default class Functions {
      */
     public random(choices: any[]): any {
         return choices[Math.floor(Math.random() * choices.length)];
+    }
+
+    /**
+     * Get whether a user is a developer or not.
+     * @param snowflake The user ID to check.
+     * @returns Whether the user is a developer or not.
+     */
+    public async isDeveloper(snowflake: Snowflake) {
+        await this.client.application?.fetch();
+        return (
+            this.isAdmin(snowflake) &&
+            ((this.client.application?.owner instanceof User &&
+                this.client.application.owner.id === snowflake) ||
+                (this.client.application?.owner instanceof Team &&
+                    this.client.application.owner.members.has(snowflake)))
+        );
+    }
+
+    /**
+     * Get whether a user is an admin or not.
+     * @param snowflake The user ID to check.
+     * @returns Whether the user is an admin or not.
+     */
+    public isAdmin(snowflake: Snowflake) {
+        return this.client.config.admins.includes(snowflake);
     }
 }

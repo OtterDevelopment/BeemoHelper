@@ -2,7 +2,6 @@ import EventHandler from "../../../lib/classes/EventHandler.js";
 
 export default class Warn extends EventHandler {
     override async run(info: string) {
-        this.client.dataDog.increment("events", 1, ["event:warn"]);
         this.client.logger.info(
             `Shard ${this.client.shard?.ids[0]} sent a warning: ${info}`
         );

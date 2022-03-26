@@ -3,7 +3,6 @@ import EventHandler from "../../../lib/classes/EventHandler.js";
 
 export default class ShardReady extends EventHandler {
     override async run(shardId: number, unavailableGuilds: Set<Snowflake>) {
-        this.client.dataDog.increment("events", 1, ["event:shardReady"]);
         this.client.logger.info(
             `Shard ${shardId} online in ${
                 this.client.guilds.cache.size

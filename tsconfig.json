@@ -16,7 +16,6 @@
   
 	  "forceConsistentCasingInFileNames": true,
 	  "noImplicitAny": true,
-	  "noImplicitReturns": true,
 	  "noImplicitThis": true,
 	  "noFallthroughCasesInSwitch": true,
 	  "noUnusedLocals": true,

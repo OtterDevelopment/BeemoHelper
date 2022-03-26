@@ -6,7 +6,6 @@ export default class InteractionCreate extends EventHandler {
         this.client.logger.info(
             `${interaction.type} interaction created: ${interaction.toString()}`
         );
-        this.client.dataDog.increment("events", 1, ["event:interactionCreate"]);
         // @ts-ignore
         if (this.client.mongo.topology.s.state !== "connected")
             // @ts-ignore
@@ -27,6 +26,10 @@ export default class InteractionCreate extends EventHandler {
             return this.client.buttonHandler.handleButton(interaction);
         else if (interaction.isSelectMenu())
             return this.client.dropDownHandler.handleDropDown(interaction);
+        else if (interaction.isAutocomplete())
+            return this.client.autoCompleteHandler.handleAutoComplete(
+                interaction
+            );
         const error = new Error("Invalid Interaction: Never seen this before.");
         this.client.logger.error(error);
         this.client.logger.sentry.captureWithInteraction(error, interaction);

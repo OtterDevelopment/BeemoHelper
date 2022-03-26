@@ -22,7 +22,8 @@
       "consistent-return": "off",
       "no-underscore-dangle": "off",
       "no-console": "error",
-      "no-restricted-syntax": "off"
+      "no-restricted-syntax": "off",
+      "@typescript-eslint/no-empty-function": "off"
     },
     "parserOptions": {
       "project": "./tsconfig.json"
