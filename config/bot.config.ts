@@ -4,7 +4,7 @@ export default {
     prefixes: process.env.NODE_ENV === "production" ? ["b!"] : ["b!!"],
     botName: "Beemo Helper",
 
-    version: "2.0.0",
+    version: "2.0.1",
     admins: ["619284841187246090"],
 
     // If your bot isn't public, or open source, or doesn't have a
