@@ -52,7 +52,6 @@ export default class Raid {
      * Start the anti raid.
      */
     public async start() {
-        this.client.activeRaids.set(this.guild.id, this.userIds);
         await this.guild.members.fetch();
         await this.banMembers();
     }

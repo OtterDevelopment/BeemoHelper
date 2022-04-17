@@ -1,7 +1,7 @@
 import { resolve } from "path";
 import { MongoClient } from "mongodb";
 import * as metrics from "datadog-metrics";
-import { Client, ClientOptions, Collection, Snowflake } from "discord.js";
+import { Client, ClientOptions, Collection } from "discord.js";
 import Button from "../classes/Button.js";
 import DropDown from "../classes/DropDown.js";
 import * as Logger from "../classes/Logger.js";
@@ -125,11 +125,6 @@ export default class BetterClient extends Client {
     public readonly __dirname: string;
 
     /**
-     * All currently active raids on guilds.
-     */
-    public activeRaids: Collection<Snowflake, Snowflake[]>;
-
-    /**
      * Create our client.
      * @param options The options for our client.
      */
@@ -179,8 +174,6 @@ export default class BetterClient extends Client {
             channels: 0,
             roles: 0
         };
-
-        this.activeRaids = new Collection();
 
         this.dropDownHandler.loadDropDowns();
         this.buttonHandler.loadButtons();
@@ -282,3 +275,4 @@ export default class BetterClient extends Client {
         return reducedStats || this.cachedStats;
     }
 }
+
