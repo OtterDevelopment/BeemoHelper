@@ -61,16 +61,17 @@ export default class Raid {
      * Start banning members of the raid.
      */
     private async banMembers() {
+        const members = this.userIds.filter(userId =>
+            this.client.guilds.cache
+                .get(this.guild.id)
+                ?.members.cache.has(userId)
+        );
+        if (members.length)
+            return this.client.logger.info(
+                `Skipping raid in ${this.guild.name} [${this.guild.id}] (${this.logUrl}) as there are 0 members to ban out of ${this.userIds.length} total raiders.`
+            );
         this.client.logger.info(
-            `Starting bans in ${this.guild.name} [${this.guild.id}] (${
-                this.logUrl
-            }), there are currently ${
-                this.userIds.filter(userId =>
-                    this.client.guilds.cache
-                        .get(this.guild.id)
-                        ?.members.cache.has(userId)
-                ).length
-            } members in the guild out of ${this.userIds.length} total raiders.`
+            `Starting bans in ${this.guild.name} [${this.guild.id}] (${this.logUrl}), there are currently ${members.length} members in the guild out of ${this.userIds.length} total raiders.`
         );
         for (const userId of this.userIds) {
             if (

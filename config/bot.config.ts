@@ -24,7 +24,7 @@ export default {
         ]
     } as PresenceData,
 
-    hastebin: "https://h.inv.wtf",
+    hastebin: "https://hst.sh",
 
     // To replace these colors please make sure you are providing a
     // hexadecimal color.
@@ -65,3 +65,4 @@ export default {
         helperGlobalLogChannelId: "878542336928415805"
     }
 };
+
