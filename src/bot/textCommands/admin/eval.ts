@@ -1,5 +1,8 @@
+import { MessageEmbed } from "discord.js";
 import { inspect } from "util";
+import StopWatch from "../../../../lib/classes/StopWatch.js";
 import TextCommand from "../../../../lib/classes/TextCommand.js";
+import Type from "../../../../lib/classes/Type.js";
 import BetterClient from "../../../../lib/extensions/BetterClient.js";
 import BetterMessage from "../../../../lib/extensions/BetterMessage.js";
 
@@ -17,109 +20,104 @@ export default class Eval extends TextCommand {
                 message.guild?.id
             }, ${args.join(" ")}`
         );
-        try {
-            const code = args.join(" ");
-            // eslint-disable-next-line no-eval
-            const evaled = eval(code);
 
-            if (evaled instanceof Promise) {
-                const start = Date.now();
-                return await Promise.all([
-                    message.reply({ content: "♨️ Running..." }),
-                    evaled
-                ])
-                    .then(async ([msg, output]) => {
-                        msg.edit({
-                            content: `🆗 Evaluated successfully \`(${
-                                Date.now() - start
-                            }ms)\`. ${
-                                this.parseContent(
-                                    typeof output !== "string"
-                                        ? inspect(output)
-                                        : output
-                                ).length > 4096
-                                    ? await this.client.functions.uploadHaste(
-                                          this.parseContent(
-                                              typeof output !== "string"
-                                                  ? inspect(output)
-                                                  : output
-                                          ),
-                                          "ts"
-                                      )
-                                    : this.parseContent(
-                                          typeof output !== "string"
-                                              ? inspect(output)
-                                              : output
-                                      )
-                            }`
-                        });
+        const { success, result, time, type } = await this.eval(
+            message,
+            args.join(" ")
+        );
+        if (message.content.includes("--silent")) return null;
+
+        if (result.length > 4087)
+            return message.reply({
+                embeds: [
+                    new MessageEmbed({
+                        title: success
+                            ? "🆗 Evaluated successfully."
+                            : "🆘 JavaScript failed.",
+                        description: `Output too long for Discord, view it [here](${this.client.functions.uploadHaste(
+                            result,
+                            "ts"
+                        )})`,
+                        fields: [
+                            {
+                                name: "Type",
+                                value: `\`\`\`ts\n${type}\`\`\`\n${time}`
+                            }
+                        ],
+                        color: parseInt(
+                            success
+                                ? this.client.config.colors.success
+                                : this.client.config.colors.error,
+                            16
+                        )
                     })
-                    .catch(async error => {
-                        return message.reply({
-                            content: `🆘 JavaScript failed. ${
-                                this.parseContent(
-                                    typeof error !== "string"
-                                        ? inspect(error)
-                                        : error
-                                ).length > 4096
-                                    ? await this.client.functions.uploadHaste(
-                                          this.parseContent(
-                                              typeof error !== "string"
-                                                  ? inspect(error)
-                                                  : error
-                                          ),
-                                          "ts"
-                                      )
-                                    : this.parseContent(
-                                          typeof error !== "string"
-                                              ? inspect(error)
-                                              : error
-                                      )
-                            }`
-                        });
-                    });
-            }
+                ]
+            });
 
-            return await message.reply({
-                content: `🆗 Evaluated successfully. ${
-                    this.parseContent(
-                        typeof evaled !== "string" ? inspect(evaled) : evaled
-                    ).length > 4096
-                        ? await this.client.functions.uploadHaste(
-                              this.parseContent(
-                                  typeof evaled !== "string"
-                                      ? inspect(evaled)
-                                      : evaled
-                              ),
-                              "ts"
-                          )
-                        : this.parseContent(
-                              typeof evaled !== "string"
-                                  ? inspect(evaled)
-                                  : evaled
-                          )
-                }`
-            });
-        } catch (error) {
-            return await message.reply({
-                content: `🆘 JavaScript failed. ${
-                    this.parseContent(
-                        typeof error !== "string" ? inspect(error) : error
-                    ).length > 4096
-                        ? await this.client.functions.uploadHaste(
-                              this.parseContent(
-                                  typeof error !== "string"
-                                      ? inspect(error)
-                                      : error
-                              ),
-                              "ts"
-                          )
-                        : this.parseContent(
-                              typeof error !== "string" ? inspect(error) : error
-                          )
-                }`
-            });
+        return message.reply({
+            embeds: [
+                new MessageEmbed({
+                    title: success
+                        ? "🆗 Evaluated successfully."
+                        : "🆘 JavaScript failed.",
+                    description: `\`\`\`js\n${result}\`\`\``,
+                    fields: [
+                        {
+                            name: "Type",
+                            value: `\`\`\`ts\n${type}\`\`\`\n${time}`
+                        }
+                    ],
+                    color: parseInt(
+                        success
+                            ? this.client.config.colors.success
+                            : this.client.config.colors.error,
+                        16
+                    )
+                })
+            ]
+        });
+    }
+
+    private async eval(message: BetterMessage, code: string) {
+        code = code.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
+        const stopwatch = new StopWatch();
+        let success;
+        let syncTime;
+        let asyncTime;
+        let result;
+        let thenable = false;
+        let type;
+        try {
+            if (message.content.includes("--async"))
+                code = `(async () => {\n${code}\n})();`;
+            // eslint-disable-next-line no-eval
+            result = eval(code);
+            syncTime = stopwatch.toString();
+            type = new Type(result);
+            if (this.client.functions.isThenable(result)) {
+                thenable = true;
+                stopwatch.restart();
+                result = await result;
+                asyncTime = stopwatch.toString();
+                type.addValue(result);
+            }
+            success = true;
+        } catch (error: any) {
+            if (!syncTime) syncTime = stopwatch.toString();
+            if (!type) type = new Type(error);
+            if (thenable && !asyncTime) asyncTime = stopwatch.toString();
+            if (error && error.stack) this.client.emit("error", error.stack);
+            result = error;
+            success = false;
         }
+
+        stopwatch.stop();
+        return {
+            success,
+            type,
+            time: this.formatTime(syncTime, asyncTime),
+            result: this.parseContent(inspect(result))
+        };
     }
 
     /**
@@ -146,6 +144,10 @@ export default class Eval extends TextCommand {
                     "[ D A T A D O G A P I K E Y ]"
                 )
         );
+    }
+
+    private formatTime(syncTime: string, asyncTime?: string) {
+        return asyncTime ? `⏱ ${asyncTime}<${syncTime}>` : `⏱ ${syncTime}`;
     }
 }
 

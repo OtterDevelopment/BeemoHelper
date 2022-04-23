@@ -312,4 +312,29 @@ export default class Functions {
     public isAdmin(snowflake: Snowflake) {
         return this.client.config.admins.includes(snowflake);
     }
+
+    /**
+     * Verify if an object is a promise.
+     * @param input The object to verify.
+     * @returns Whether the object is a promise or not.
+     */
+    public isThenable(input: any): boolean {
+        if (!input) return false;
+        return (
+            input instanceof Promise ||
+            (input !== Promise.prototype &&
+                this.isFunction(input.then) &&
+                this.isFunction(input.catch))
+        );
+    }
+
+    /**
+     * Verify if the input is a function.
+     * @param input The input to verify.
+     * @returns Whether the input is a function or not.
+     */
+    public isFunction(input: any): boolean {
+        return typeof input === "function";
+    }
 }
+
