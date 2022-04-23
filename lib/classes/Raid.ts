@@ -65,7 +65,7 @@ export default class Raid {
                 .get(this.guild.id)
                 ?.members.cache.has(userId)
         );
-        if (members.length)
+        if (!members.length)
             return this.client.logger.info(
                 `Skipping raid in ${this.guild.name} [${this.guild.id}] (${this.logUrl}) as there are 0 members to ban out of ${this.userIds.length} total raiders.`
             );
