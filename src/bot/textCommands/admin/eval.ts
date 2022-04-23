@@ -32,46 +32,92 @@ export default class Eval extends TextCommand {
                         msg.edit({
                             content: `🆗 Evaluated successfully \`(${
                                 Date.now() - start
-                            }ms)\`. ${await this.client.functions.uploadHaste(
+                            }ms)\`. ${
                                 this.parseContent(
                                     typeof output !== "string"
                                         ? inspect(output)
                                         : output
-                                ),
-                                "ts"
-                            )}`
+                                ).length > 4096
+                                    ? await this.client.functions.uploadHaste(
+                                          this.parseContent(
+                                              typeof output !== "string"
+                                                  ? inspect(output)
+                                                  : output
+                                          ),
+                                          "ts"
+                                      )
+                                    : this.parseContent(
+                                          typeof output !== "string"
+                                              ? inspect(output)
+                                              : output
+                                      )
+                            }`
                         });
                     })
                     .catch(async error => {
                         return message.reply({
-                            content: `🆘 JavaScript failed. ${await this.client.functions.uploadHaste(
+                            content: `🆘 JavaScript failed. ${
                                 this.parseContent(
                                     typeof error !== "string"
                                         ? inspect(error)
                                         : error
-                                ),
-                                "ts"
-                            )}`
+                                ).length > 4096
+                                    ? await this.client.functions.uploadHaste(
+                                          this.parseContent(
+                                              typeof error !== "string"
+                                                  ? inspect(error)
+                                                  : error
+                                          ),
+                                          "ts"
+                                      )
+                                    : this.parseContent(
+                                          typeof error !== "string"
+                                              ? inspect(error)
+                                              : error
+                                      )
+                            }`
                         });
                     });
             }
 
             return await message.reply({
-                content: `🆗 Evaluated successfully. ${await this.client.functions.uploadHaste(
+                content: `🆗 Evaluated successfully. ${
                     this.parseContent(
                         typeof evaled !== "string" ? inspect(evaled) : evaled
-                    ),
-                    "ts"
-                )}`
+                    ).length > 4096
+                        ? await this.client.functions.uploadHaste(
+                              this.parseContent(
+                                  typeof evaled !== "string"
+                                      ? inspect(evaled)
+                                      : evaled
+                              ),
+                              "ts"
+                          )
+                        : this.parseContent(
+                              typeof evaled !== "string"
+                                  ? inspect(evaled)
+                                  : evaled
+                          )
+                }`
             });
         } catch (error) {
             return await message.reply({
-                content: `🆘 JavaScript failed. ${await this.client.functions.uploadHaste(
+                content: `🆘 JavaScript failed. ${
                     this.parseContent(
                         typeof error !== "string" ? inspect(error) : error
-                    ),
-                    "ts"
-                )}`
+                    ).length > 4096
+                        ? await this.client.functions.uploadHaste(
+                              this.parseContent(
+                                  typeof error !== "string"
+                                      ? inspect(error)
+                                      : error
+                              ),
+                              "ts"
+                          )
+                        : this.parseContent(
+                              typeof error !== "string" ? inspect(error) : error
+                          )
+                }`
             });
         }
     }
@@ -102,3 +148,4 @@ export default class Eval extends TextCommand {
         );
     }
 }
+

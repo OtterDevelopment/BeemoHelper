@@ -52,7 +52,9 @@ export default class Raid {
      * Start the anti raid.
      */
     public async start() {
-        await this.guild.members.fetch();
+        this.client.logger.debug(this.guild.members.cache.size);
+        await this.guild.members.fetch({ force: true });
+        this.client.logger.debug(this.guild.members.cache.size);
         await this.banMembers();
     }
 
@@ -61,9 +63,7 @@ export default class Raid {
      */
     private async banMembers() {
         const members = this.userIds.filter(userId =>
-            this.client.guilds.cache
-                .get(this.guild.id)
-                ?.members.cache.has(userId)
+            this.guild.members.cache.has(userId)
         );
         if (!members.length)
             return this.client.logger.info(
