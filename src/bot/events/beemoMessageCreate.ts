@@ -138,7 +138,21 @@ export default class BeemoMessageCreate extends EventHandler {
 
         await Promise.all(
             [actionLogChannel as TextChannel, this.globalActionLog!].map(
-                channel => channel.send(embed)
+                channel =>
+                    channel.send(embed).catch(error => {
+                        if (error.code === 50013)
+                            this.client.logger.info(
+                                `I don't have enough permissions to log raids in channel ${channel.name} [${channel.id}] in guild ${guild.name} [${guild.id}].`
+                            );
+                        else {
+                            this.client.logger.error(error);
+                            this.client.logger.sentry.captureWithExtras(error, {
+                                event: "Beemo Message Create",
+                                guild: channel.guild,
+                                channel
+                            });
+                        }
+                    })
             )
         );
 
