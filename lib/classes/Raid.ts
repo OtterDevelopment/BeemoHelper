@@ -103,7 +103,7 @@ export default class Raid {
                 this.bannedMembers.push(userId);
             } catch (error: any) {
                 if (error.code === 10013)
-                    return this.client.logger.info(
+                    this.client.logger.info(
                         `Skipping over ${userId} (${
                             this.userIds.indexOf(userId) + 1
                         }/${
@@ -113,7 +113,7 @@ export default class Raid {
                         } [${this.guild.id}] (${this.logUrl})`
                     );
                 else if (error.code === 50013)
-                    return this.client.logger.info(
+                    this.client.logger.info(
                         `Skipping over ${userId} (${
                             this.userIds.indexOf(userId) + 1
                         }/${
@@ -129,8 +129,6 @@ export default class Raid {
                         guild: this.guild
                     });
                 }
-                // eslint-disable-next-line no-continue
-                continue;
             }
         }
     }
