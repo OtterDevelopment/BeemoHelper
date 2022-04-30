@@ -52,9 +52,7 @@ export default class Raid {
      * Start the anti raid.
      */
     public async start() {
-        this.client.logger.debug(this.guild.members.cache.size);
         await this.guild.members.fetch({ force: true });
-        this.client.logger.debug(this.guild.members.cache.size);
         await this.banMembers();
     }
 
