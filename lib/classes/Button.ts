@@ -87,7 +87,7 @@ export default class Button {
             };
         else if (
             this.devOnly &&
-            !this.client.functions.isDeveloper(interaction.user.id)
+            !this.client.functions.isAdmin(interaction.user.id)
         )
             return {
                 title: "Missing Permissions",
@@ -148,3 +148,4 @@ export default class Button {
      */
     public async run(_interaction: ButtonInteraction): Promise<void> {}
 }
+

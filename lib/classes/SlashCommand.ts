@@ -131,7 +131,7 @@ export default class SlashCommand {
             };
         else if (
             this.devOnly &&
-            !this.client.functions.isDeveloper(interaction.user.id)
+            !this.client.functions.isAdmin(interaction.user.id)
         )
             return {
                 title: "Missing Permissions",
@@ -215,3 +215,4 @@ export default class SlashCommand {
      */
     public async run(_interaction: CommandInteraction): Promise<any> {}
 }
+

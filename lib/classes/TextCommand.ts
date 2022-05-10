@@ -123,7 +123,7 @@ export default class TextCommand {
             };
         else if (
             this.devOnly &&
-            !this.client.functions.isDeveloper(message.author.id)
+            !this.client.functions.isAdmin(message.author.id)
         )
             return {
                 title: "Missing Permissions",
@@ -205,3 +205,4 @@ export default class TextCommand {
      */
     public async run(_message: BetterMessage, _args: string[]): Promise<any> {}
 }
+
