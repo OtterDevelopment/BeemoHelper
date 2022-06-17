@@ -52,7 +52,10 @@ export default class Raid {
      * Start the anti raid.
      */
     public async start() {
-        await this.guild.members.fetch({ force: true });
+        await this.guild.members.fetch({
+            force: true,
+            limit: Number.MAX_SAFE_INTEGER
+        });
         await this.banMembers();
     }
 
@@ -131,3 +134,4 @@ export default class Raid {
         }
     }
 }
+
