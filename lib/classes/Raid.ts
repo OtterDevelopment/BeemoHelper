@@ -52,10 +52,17 @@ export default class Raid {
      * Start the anti raid.
      */
     public async start() {
-        await this.guild.members.fetch({
-            force: true,
-            limit: Number.MAX_SAFE_INTEGER
-        });
+        try {
+            await this.guild.members.fetch({
+                force: true
+            });
+        } catch (error: any) {
+            this.client.logger.error(error);
+            return this.client.logger.sentry.captureWithExtras(error, {
+                event: "Beemo Message Create",
+                guild: this.guild
+            });
+        }
         await this.banMembers();
     }
 
@@ -122,6 +129,10 @@ export default class Raid {
                         }) because I don't have enough permissions to ban them in ${
                             this.guild.name
                         } [${this.guild.id}] (${this.logUrl})`
+                    );
+                else if (error.code === 30035)
+                    return this.client.logger.info(
+                        `Stopping bans in ${this.guild.name} [${this.guild.id}] (${this.logUrl}) as the ban limit has been reached.`
                     );
                 else {
                     this.client.logger.error(error);
