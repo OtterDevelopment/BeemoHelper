@@ -11,7 +11,12 @@ export default class BeemoMessageCreate extends EventHandler {
     private globalActionLog?: TextChannel;
 
     override async run(message: BetterMessage) {
-        if (!this.globalActionLog) {
+        if (
+            message.embeds[0]?.author?.name !==
+            "Userbot raid detected by antispam"
+        )
+            return;
+        else if (!this.globalActionLog) {
             const channel = this.client.channels.cache.get(
                 this.client.config.otherConfig.helperGlobalLogChannelId
             );
@@ -22,13 +27,12 @@ export default class BeemoMessageCreate extends EventHandler {
 
             this.globalActionLog = channel as TextChannel;
         }
-        if (
-            message.embeds[0]?.author?.name !==
-            "Userbot raid detected by antispam"
-        )
-            return;
+
         const guildId = message.embeds[0].description?.match(/\d{17,18}/g);
         this.client.dataDog.increment("totalRaids", 1, [`guild:${guildId}`]);
+
+        if (guildId?.[0] !== message.guildId) return;
+
         const guild = this.client.guilds.cache.get(guildId?.[0] || "");
         if (!guild) return;
 
@@ -161,3 +165,4 @@ export default class BeemoMessageCreate extends EventHandler {
         );
     }
 }
+
