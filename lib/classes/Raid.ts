@@ -114,7 +114,11 @@ export default class Raid {
                                 this.userIds.indexOf(userId) + 1
                             }/${this.userIds.length}) from ${
                                 this.guild.name
-                            } [${this.guild.id}] (${this.logUrl})`
+                            } [${this.guild.id}] (${
+                                this.logUrl
+                            }) with Beemo Helper #${
+                                (this.bannedMembers.length % 2) + 1
+                            }}`
                         );
                         this.bannedMembers.push(userId);
                     })
