@@ -32,10 +32,10 @@ export default class Raid {
     /**
      * Our REST clients for this raid.
      */
-    private restClients: REST[] = [
-        new REST({}).setToken(process.env.DISCORD_TOKEN),
-        new REST({}).setToken(process.env.DISCORD_TOKEN_2)
-    ];
+    private restClients = {
+        "769772015447703592": new REST({}).setToken(process.env.DISCORD_TOKEN),
+        "990765511950348298": new REST({}).setToken(process.env.DISCORD_TOKEN_2)
+    };
 
     /**
      * Create our Raid.
@@ -79,6 +79,15 @@ export default class Raid {
      * Start banning members of the raid.
      */
     private async banMembers() {
+        const restClientsToUse = Object.entries(this.restClients)
+            .map(([key, value]) => {
+                if (this.guild.members.cache.has(key)) return value;
+                return null;
+            })
+            .filter(Boolean) as REST[];
+        const maxNum = restClientsToUse.length - 1;
+        let currentNum = 0;
+
         const members = this.userIds.filter(userId =>
             this.guild.members.cache.has(userId)
         );
@@ -104,7 +113,7 @@ export default class Raid {
                         } [${this.guild.id}] (${this.logUrl})`
                     );
                 }
-                return this.restClients[this.bannedMembers.length % 2]
+                return restClientsToUse[currentNum]
                     .put(Routes.guildBan(this.guild.id, userId), {
                         reason: `This user was detected as a userbot by Beemo in ${this.logUrl}.`
                     })
@@ -121,6 +130,7 @@ export default class Raid {
                             }}`
                         );
                         this.bannedMembers.push(userId);
+                        currentNum = currentNum >= maxNum ? 0 : currentNum + 1;
                     })
                     .catch(error => {
                         if (error.code === 10013)
