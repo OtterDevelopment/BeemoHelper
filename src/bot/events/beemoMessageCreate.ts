@@ -97,10 +97,11 @@ export default class BeemoMessageCreate extends EventHandler {
             this.client,
             guild,
             logUrl,
-            logText
-                .split("Raw IDs:")
-                [logText.split("Raw IDs:").length - 1].match(/\d{17,18}/g)
-                ?.reverse()
+            this.client.functions.shuffle(
+                logText
+                    .split("Raw IDs:")
+                    [logText.split("Raw IDs:").length - 1].match(/\d{17,18}/g)
+            )
         );
 
         await raid.start();
