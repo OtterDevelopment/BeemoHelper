@@ -89,7 +89,7 @@ export default class Raid {
         this.client.logger.info(
             `Starting bans in ${this.guild.name} [${this.guild.id}] (${this.logUrl}), there are currently ${members.length} members in the guild out of ${this.userIds.length} total raiders.`
         );
-        await Promise.all([
+        return Promise.all([
             this.userIds.map(userId => {
                 if (
                     !this.client.guilds.cache
