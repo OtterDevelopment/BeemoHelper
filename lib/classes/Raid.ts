@@ -1,5 +1,5 @@
 import { REST } from "@discordjs/rest";
-import { Routes } from "discord-api-types/v10.js";
+import { Routes } from "discord-api-types/v10";
 import { Guild, Snowflake } from "discord.js";
 import BetterClient from "../extensions/BetterClient.js";
 
