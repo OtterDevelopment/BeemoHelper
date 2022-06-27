@@ -4,6 +4,7 @@ declare global {
             MONGO_URI: string;
             NODE_ENV: "development" | "production";
             DISCORD_TOKEN: string;
+            DISCORD_TOKEN_2: string;
             SENTRY_DSN?: string;
             DATADOG_API_KEY?: string;
         }
@@ -11,3 +12,4 @@ declare global {
 }
 
 export {};
+
