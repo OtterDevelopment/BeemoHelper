@@ -72,7 +72,7 @@ export default class Raid {
                 guild: this.guild
             });
         }
-        await this.banMembers();
+        return this.banMembers();
     }
 
     /**
