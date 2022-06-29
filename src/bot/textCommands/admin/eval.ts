@@ -34,7 +34,7 @@ export default class Eval extends TextCommand {
                         title: success
                             ? "🆗 Evaluated successfully."
                             : "🆘 JavaScript failed.",
-                        description: `Output too long for Discord, view it [here](${this.client.functions.uploadHaste(
+                        description: `Output too long for Discord, view it [here](${await this.client.functions.uploadHaste(
                             result,
                             "ts"
                         )})`,
