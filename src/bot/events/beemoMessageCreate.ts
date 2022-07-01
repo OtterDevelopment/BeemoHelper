@@ -1,4 +1,4 @@
-import * as petitio from "petitio";
+import petitio from "petitio";
 import { PermissionResolvable, TextChannel } from "discord.js";
 import EventHandler from "../../../lib/classes/EventHandler.js";
 import BetterMessage from "../../../lib/extensions/BetterMessage.js";
@@ -28,10 +28,8 @@ export default class BeemoMessageCreate extends EventHandler {
             this.globalActionLog = channel as TextChannel;
         }
 
-        const guildId = message.embeds[0].description?.match(/\d{17,18}/g);
+        const guildId = message.embeds[0].description?.match(/\d{17,19}/g);
         this.client.dataDog.increment("totalRaids", 1, [`guild:${guildId}`]);
-
-        if (guildId?.[0] !== message.guildId) return;
 
         const guild = this.client.guilds.cache.get(guildId?.[0] || "");
         if (!guild) return;
@@ -91,17 +89,15 @@ export default class BeemoMessageCreate extends EventHandler {
         const logUrl = message.embeds[0].description!.match(
             /https:\/\/logs.beemo.gg\/antispam\/[\w]*/g
         )![0];
-        // @ts-ignore
-        const logText = await petitio.default(logUrl).text();
+        const logText = await petitio(logUrl).text();
         const raid = new Raid(
             this.client,
             guild,
             logUrl,
-            this.client.functions.shuffle(
-                logText
-                    .split("Raw IDs:")
-                    [logText.split("Raw IDs:").length - 1].match(/\d{17,18}/g)
-            )
+            logText
+                .split("Raw IDs:")
+                [logText.split("Raw IDs:").length - 1].match(/\d{17,18}/g)
+                ?.reverse() || []
         );
 
         await raid.start();

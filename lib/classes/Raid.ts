@@ -98,7 +98,7 @@ export default class Raid {
         this.client.logger.info(
             `Starting bans in ${this.guild.name} [${this.guild.id}] (${this.logUrl}), there are currently ${members.length} members in the guild out of ${this.userIds.length} total raiders.`
         );
-        return Promise.all([
+        return Promise.all(
             this.userIds.map(userId => {
                 if (
                     !this.client.guilds.cache
@@ -125,9 +125,7 @@ export default class Raid {
                                 this.guild.name
                             } [${this.guild.id}] (${
                                 this.logUrl
-                            }) with Beemo Helper #${
-                                (this.bannedMembers.length % 2) + 1
-                            }}`
+                            }) with Beemo Helper #${currentNum + 1}`
                         );
                         this.bannedMembers.push(userId);
                         currentNum = currentNum >= maxNum ? 0 : currentNum + 1;
@@ -166,7 +164,7 @@ export default class Raid {
                         }
                     });
             })
-        ]);
+        );
     }
 }
 

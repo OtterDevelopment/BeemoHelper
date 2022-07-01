@@ -11,7 +11,11 @@ export default class MessageCreate extends EventHandler {
             return;
         // @ts-ignore
         else if (this.client.mongo.topology.s.state !== "connected") return;
-        else if (message.author.id === this.client.config.otherConfig.beemoId)
+        else if (
+            message.author.id === this.client.config.otherConfig.beemoId &&
+            message.channel.id ===
+                this.client.config.otherConfig.beemoGlobalLogChannelId
+        )
             this.client.emit("beemoMessageCreate", message);
         return this.client.textCommandHandler.handleCommand(message);
     }
