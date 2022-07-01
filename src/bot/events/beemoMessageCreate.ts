@@ -96,7 +96,8 @@ export default class BeemoMessageCreate extends EventHandler {
             logUrl,
             logText
                 .split("Raw IDs:")
-                [logText.split("Raw IDs:").length - 1].match(/\d{17,18}/g)
+                .at(-1)
+                ?.match(/\d{17,18}/g)
                 ?.reverse() || []
         );
 
