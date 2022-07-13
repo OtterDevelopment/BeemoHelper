@@ -3,6 +3,8 @@ import EventHandler from "../../../lib/classes/EventHandler.js";
 
 export default class GuildDelete extends EventHandler {
     override async run(guild: Guild) {
+        if (!guild.available || !guild.id || !guild.name) return;
+
         const stats = await this.client.fetchStats();
         this.client.dataDog.gauge("guilds", stats.guilds);
         this.client.dataDog.gauge("users", stats.users);
@@ -38,3 +40,4 @@ export default class GuildDelete extends EventHandler {
         });
     }
 }
+
