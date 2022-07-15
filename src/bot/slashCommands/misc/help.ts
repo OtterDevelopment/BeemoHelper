@@ -19,7 +19,7 @@ export default class Help extends SlashCommand {
                 {
                     title: "Beemo Helper",
                     description:
-                        "Beemo Helper is designed to help [Beemo](https://beemo.gg) deal with user bot raids.\n\nOnce Beemo detects that your server is getting raided it will log it. If Beemo Helper is in your server it will detect this raid and ban all of the raiders from the bottom up of the log. Thus, effectively doubling the speed of bans.\n\n**Beemo Helper does not preemptively ban all users in all of Beemo's raid logs for all servers.**\n\nAll you need to do to set up Beemo Helper is set an action log channel with `/config action_channel #CHANNEL` and Beemo Helper will do the rest!\n\n**Make sure Beemo Helper has permissions to send messages and ban members.**",
+                        "Beemo Helper is designed to help [Beemo](https://beemo.gg) deal with user bot raids.\n\nOnce Beemo detects that your server is getting raided it will log it. If Beemo Helper is in your server it will detect this raid and ban all of the raiders from the bottom up of the log. Thus, effectively doubling the speed of bans.\n\n**Beemo Helper does not preemptively ban all users in all of Beemo's raid logs for all servers.**\n\nAll you need to do to set up Beemo Helper is set an action log channel with `/config action_log set #CHANNEL` and Beemo Helper will do the rest!\n\n**Make sure Beemo Helper has permissions to send messages and ban members.**",
                     footer: {
                         text: `Beemo Helper v${
                             process.env.NODE_ENV === "development"
@@ -53,3 +53,4 @@ export default class Help extends SlashCommand {
         );
     }
 }
+
