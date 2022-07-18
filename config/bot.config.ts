@@ -10,8 +10,10 @@ export default {
     // If your bot isn't public, or open source, or doesn't have a
     // Support server, feel free to remove the following variables.
     supportServer: "https://discord.gg/VvE5ucuJmW",
-    minimalInvite:
-        "https://discord.com/api/oauth2/authorize?client_id=769772015447703592&permissions=52228&redirect_uri=https%3A%2F%2Fdiscord.gg%2FhkDuZfpfBB&scope=bot%20applications.commands",
+    minimalInvite: {
+        1: "https://discord.com/api/oauth2/authorize?client_id=769772015447703592&permissions=52228&redirect_uri=https%3A%2F%2Fdiscord.gg%2FhkDuZfpfBB&scope=bot%20applications.commands",
+        2: "https://canary.discord.com/api/oauth2/authorize?client_id=990765511950348298&permissions=52228&scope=applications.commands+bot"
+    },
     gitHub: "https://github.com/OtterDevelopment/BeemoHelper",
 
     presence: {

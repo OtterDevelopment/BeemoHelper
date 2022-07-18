@@ -32,8 +32,13 @@ export default class Help extends SlashCommand {
                     new MessageActionRow({
                         components: [
                             new MessageButton({
-                                label: "Invite Me",
-                                url: this.client.config.minimalInvite,
+                                label: "Invite Beemo Helper #1",
+                                url: this.client.config.minimalInvite[1],
+                                style: "LINK"
+                            }),
+                            new MessageButton({
+                                label: "Invite Beemo Helper #2",
+                                url: this.client.config.minimalInvite[2],
                                 style: "LINK"
                             }),
                             new MessageButton({
