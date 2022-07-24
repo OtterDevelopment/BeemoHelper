@@ -26,7 +26,7 @@ export default {
         ]
     } as PresenceData,
 
-    hastebin: "https://hst.sh",
+    hastebin: "https://haste.polars.cloud",
 
     // To replace these colors please make sure you are providing a
     // hexadecimal color.
