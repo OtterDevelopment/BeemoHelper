@@ -3,7 +3,7 @@
 	  "target": "ESNext",
 	  "module": "ESNext",
 	  "moduleResolution": "node",
-	  "lib": ["ESNext"],
+	  "lib": ["ESNext", "DOM"], // Add DOM for native fetch.
   
 	  "rootDir": ".",
 	  "outDir": "dist",

@@ -1,5 +1,4 @@
 import { createHash } from "crypto";
-import petitio from "petitio";
 import {
     MessageActionRow,
     MessageButton,
@@ -161,16 +160,19 @@ export default class Functions {
         type?: string
     ): Promise<string | null> {
         try {
-            const haste = await petitio(
+            const response = await fetch(
                 `${this.client.config.hastebin}/documents`,
-                "POST"
-            )
-                .body(content)
-                .header(
-                    "User-Agent",
-                    `${this.client.config.botName}/${this.client.config.version}`
-                )
-                .json();
+                {
+                    method: "POST",
+                    body: content,
+                    headers: {
+                        "User-Agent": `${this.client.config.botName}/${this.client.config.version}`
+                    }
+                }
+            );
+
+            const haste = await response.json();
+
             return `${this.client.config.hastebin}/${haste.key}${
                 type ? `.${type}` : ".md"
             }`;

@@ -1,4 +1,3 @@
-import petitio from "petitio";
 import { PermissionResolvable, TextChannel } from "discord.js";
 import EventHandler from "../../../lib/classes/EventHandler.js";
 import BetterMessage from "../../../lib/extensions/BetterMessage.js";
@@ -89,7 +88,8 @@ export default class BeemoMessageCreate extends EventHandler {
         const logUrl = message.embeds[0].description!.match(
             /https:\/\/logs.beemo.gg\/antispam\/[\w]*/g
         )![0];
-        const logText = await petitio(logUrl).text();
+        const response = await fetch(logUrl);
+        const logText = await response.text();
         const raid = new Raid(
             this.client,
             guild,
