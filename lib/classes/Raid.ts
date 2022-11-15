@@ -91,6 +91,14 @@ export default class Raid {
         const members = this.userIds.filter(userId =>
             this.guild.members.cache.has(userId)
         );
+        this.client.logger.debug(
+            "members",
+            members,
+            "this.userIds",
+            this.userIds,
+            "this.guild.members.cache",
+            this.guild.members.cache
+        );
         if (!members.length)
             return this.client.logger.info(
                 `Skipping raid in ${this.guild.name} [${this.guild.id}] (${this.logUrl}) as there are 0 members to ban out of ${this.userIds.length} total raiders.`
