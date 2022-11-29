@@ -10,6 +10,8 @@ export default class BeemoMessageCreate extends EventHandler {
     private globalActionLog?: TextChannel;
 
     override async run(message: BetterMessage) {
+        this.client.logger.debug("beemoMessageCreate event emitted");
+
         if (
             message.embeds[0]?.author?.name !==
             "Userbot raid detected by antispam"
