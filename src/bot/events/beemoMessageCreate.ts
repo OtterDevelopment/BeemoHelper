@@ -1,4 +1,4 @@
-import { PermissionResolvable, TextChannel } from "discord.js";
+import { Guild, PermissionResolvable, TextChannel } from "discord.js";
 import EventHandler from "../../../lib/classes/EventHandler.js";
 import BetterMessage from "../../../lib/extensions/BetterMessage.js";
 import Raid from "../../../lib/classes/Raid.js";
@@ -18,9 +18,15 @@ export default class BeemoMessageCreate extends EventHandler {
         )
             return;
         else if (!this.globalActionLog) {
-            const channel = this.client.channels.cache.get(
-                this.client.config.otherConfig.helperGlobalLogChannelId
-            );
+            const channels = (await this.client.shard?.broadcastEval(
+                async client =>
+                    client.channels.cache.get(
+                        this.client.config.otherConfig.helperGlobalLogChannelId
+                    )
+            )) as Array<TextChannel | null>;
+
+            const channel = channels?.filter(Boolean)[0];
+
             if (!channel)
                 return this.client.logger.info(
                     "Global action log channel not found."
@@ -32,7 +38,11 @@ export default class BeemoMessageCreate extends EventHandler {
         const guildId = message.embeds[0].description?.match(/\d{17,19}/g);
         this.client.dataDog.increment("totalRaids", 1, [`guild:${guildId}`]);
 
-        const guild = this.client.guilds.cache.get(guildId?.[0] || "");
+        const guilds = (await this.client.shard?.broadcastEval(async client =>
+            client.guilds.cache.get(guildId?.[0] || "")
+        )) as Array<Guild | null>;
+
+        const guild = guilds?.filter(Boolean)[0];
         if (!guild) return;
 
         this.client.logger.info(
