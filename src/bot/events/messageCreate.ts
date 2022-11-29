@@ -4,16 +4,6 @@ import BetterMessage from "../../../lib/extensions/BetterMessage.js";
 export default class MessageCreate extends EventHandler {
     override async run(message: BetterMessage) {
         this.client.dataDog.increment("messagesSeen");
-        this.client.logger.debug(
-            "guildId",
-            message.guild?.id,
-            "channelId",
-            message.channel.id,
-            "userId",
-            message.author.id,
-            "messageId",
-            message.id
-        );
         if (
             message.author.bot &&
             message.author.id !== this.client.config.otherConfig.beemoId
