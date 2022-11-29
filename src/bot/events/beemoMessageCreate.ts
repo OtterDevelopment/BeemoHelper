@@ -18,12 +18,14 @@ export default class BeemoMessageCreate extends EventHandler {
         )
             return;
         else if (!this.globalActionLog) {
+            this.client.logger.debug(0);
             const channels = (await this.client.shard?.broadcastEval(
                 async client =>
                     client.channels.cache.get(
                         this.client.config.otherConfig.helperGlobalLogChannelId
                     )
             )) as Array<TextChannel | null>;
+            this.client.logger.debug(1);
 
             const channel = channels?.filter(Boolean)[0];
 
