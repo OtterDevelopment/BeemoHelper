@@ -60,6 +60,10 @@ export default class SlashCommandHandler {
                     })
             );
         return setTimeout(async () => {
+            const developmentGuild = this.client.guilds.cache.get(
+                process.env.DEVELOPMENT_GUILD_ID || ""
+            );
+
             if (process.env.NODE_ENV === "production") {
                 this.client.application?.commands.set(
                     this.client.slashCommands.map(command => {
@@ -70,84 +74,67 @@ export default class SlashCommandHandler {
                         };
                     })
                 );
-                await Promise.all(
-                    this.client.guilds.cache.map(guild =>
-                        guild.commands.set([]).catch(error => {
-                            if (error.code === 50001)
-                                this.client.logger.error(
-                                    null,
-                                    `I encountered DiscordAPIError: Missing Access in ${guild.name} [${guild.id}] when trying to clear slash commands!`
-                                );
-                            else {
-                                this.client.logger.error(error);
-                                this.client.logger.sentry.captureWithExtras(
-                                    error,
-                                    {
-                                        Guild: guild.name,
-                                        "Guild ID": guild.id,
-                                        "Slash Command Count":
-                                            this.client.slashCommands.size,
-                                        "Slash Commands":
-                                            this.client.slashCommands.map(
-                                                command => {
-                                                    return {
-                                                        name: command.name,
-                                                        description:
-                                                            command.description,
-                                                        options: command.options
-                                                    };
-                                                }
-                                            )
+
+                if (developmentGuild)
+                    developmentGuild.commands.set([]).catch(error => {
+                        if (error.code === 50001)
+                            this.client.logger.error(
+                                null,
+                                `I encountered DiscordAPIError: Missing Access in ${developmentGuild.name} [${developmentGuild.id}] when trying to clear slash commands!`
+                            );
+                        else {
+                            this.client.logger.error(error);
+                            this.client.logger.sentry.captureWithExtras(error, {
+                                Guild: developmentGuild.name,
+                                "Guild ID": developmentGuild.id,
+                                "Slash Command Count":
+                                    this.client.slashCommands.size,
+                                "Slash Commands": this.client.slashCommands.map(
+                                    command => {
+                                        return {
+                                            name: command.name,
+                                            description: command.description,
+                                            options: command.options
+                                        };
                                     }
-                                );
-                            }
-                        })
+                                )
+                            });
+                        }
+                    });
+            } else if (developmentGuild)
+                developmentGuild.commands
+                    .set(
+                        this.client.slashCommands.map(slashCommand => ({
+                            name: slashCommand.name,
+                            description: slashCommand.description,
+                            options: slashCommand.options
+                        }))
                     )
-                );
-            } else
-                await Promise.all(
-                    this.client.guilds.cache.map(async guild =>
-                        guild.commands
-                            .set(
-                                this.client.slashCommands.map(slashCommand => ({
-                                    name: slashCommand.name,
-                                    description: slashCommand.description,
-                                    options: slashCommand.options
-                                }))
-                            )
-                            .catch(error => {
-                                if (error.code === 50001)
-                                    this.client.logger.error(
-                                        null,
-                                        `I encountered DiscordAPIError: Missing Access in ${guild.name} [${guild.id}] when trying to set slash commands!`
-                                    );
-                                else {
-                                    this.client.logger.error(error);
-                                    this.client.logger.sentry.captureWithExtras(
-                                        error,
-                                        {
-                                            Guild: guild.name,
-                                            "Guild ID": guild.id,
-                                            "Slash Command Count":
-                                                this.client.slashCommands.size,
-                                            "Slash Commands":
-                                                this.client.slashCommands.map(
-                                                    command => {
-                                                        return {
-                                                            name: command.name,
-                                                            description:
-                                                                command.description,
-                                                            options:
-                                                                command.options
-                                                        };
-                                                    }
-                                                )
-                                        }
-                                    );
-                                }
-                            })
-                    )
-                );
+                    .catch(error => {
+                        if (error.code === 50001)
+                            this.client.logger.error(
+                                null,
+                                `I encountered DiscordAPIError: Missing Access in ${developmentGuild.name} [${developmentGuild.id}] when trying to set slash commands!`
+                            );
+                        else {
+                            this.client.logger.error(error);
+                            this.client.logger.sentry.captureWithExtras(error, {
+                                Guild: developmentGuild.name,
+                                "Guild ID": developmentGuild.id,
+                                "Slash Command Count":
+                                    this.client.slashCommands.size,
+                                "Slash Commands": this.client.slashCommands.map(
+                                    command => {
+                                        return {
+                                            name: command.name,
+                                            description: command.description,
+                                            options: command.options
+                                        };
+                                    }
+                                )
+                            });
+                        }
+                    });
         }, 5000);
     }
 

@@ -7,6 +7,7 @@ declare global {
             DISCORD_TOKEN_2: string;
             SENTRY_DSN?: string;
             DATADOG_API_KEY?: string;
+            DEVELOPMENT_GUILD_ID?: string;
         }
     }
 }
