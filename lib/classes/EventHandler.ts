@@ -18,13 +18,24 @@ export default class EventHandler {
     private readonly _listener;
 
     /**
+     * Whether this event should only be emitted once.
+     */
+    private readonly once?: boolean;
+
+    /**
      * Create our event.
      * @param client Our client.
      * @param name The name of our client.
+     * @param once Whether this event should only be emitted once.
      */
-    constructor(client: BetterClient, name: keyof ClientEvents) {
+    constructor(
+        client: BetterClient,
+        name: keyof ClientEvents,
+        once: boolean = false
+    ) {
         this.name = name;
         this.client = client;
+        this.once = once;
         this._listener = this._run.bind(this);
     }
 
@@ -54,6 +65,8 @@ export default class EventHandler {
      * Listen for our event.
      */
     public listen() {
+        if (this.once) return this.client.once(this.name, this._listener);
+
         return this.client.on(this.name, this._listener);
     }
 
@@ -64,3 +77,4 @@ export default class EventHandler {
         return this.client.off(this.name, this._listener);
     }
 }
+

@@ -1,6 +1,12 @@
+import { ClientEvents } from "discord.js";
 import EventHandler from "../../../lib/classes/EventHandler.js";
+import BetterClient from "../../../lib/extensions/BetterClient.js";
 
 export default class Ready extends EventHandler {
+    constructor(client: BetterClient, name: keyof ClientEvents) {
+        super(client, name, true);
+    }
+
     override async run() {
         await this.client.application?.fetch();
         const allGuilds = await this.client.shard?.broadcastEval(async c =>
@@ -46,3 +52,4 @@ export default class Ready extends EventHandler {
         });
     }
 }
+
