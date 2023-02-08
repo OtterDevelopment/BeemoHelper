@@ -1,31 +1,32 @@
 import { AutocompleteInteraction } from "discord.js";
-import BetterClient from "../extensions/BetterClient";
+import ExtendedClient from "../extensions/ExtendedClient";
+import Language from "./Language";
 
 export default class AutoComplete {
-    /**
-     * The name of our autoComplete.
-     */
-    public readonly name: string;
+    /** A list of strings that this autocomplete should listen to. */
+    public readonly accepts: string[];
+
+    /** Our extended client. */
+    public readonly client: ExtendedClient;
 
     /**
-     * Our client.
+     * Create a new application command.
+     * @param accepts A list of strings that this autocomplete should listen to.
+     * @param client Our extended client.
      */
-    public readonly client: BetterClient;
-
-    /**
-     * Create our autoComplete.
-     * @param name The name of our autoComplete.
-     * @param client Our client.
-     */
-    constructor(name: string, client: BetterClient) {
-        this.name = name;
-
+    constructor(accepts: string[], client: ExtendedClient) {
+        this.accepts = accepts;
         this.client = client;
     }
 
     /**
-     * Run the autocomplete.
-     * @param _interaction The interaction that was created.
+     * Run this auto complete.
+     * @param _interaction The interaction to run this auto complete for.
+     * @param _language The language to use when replying to the interaction.
      */
-    public async run(_interaction: AutocompleteInteraction): Promise<void> {}
+    public async run(
+        _interaction: AutocompleteInteraction,
+        _language: Language
+    ): Promise<any> {}
 }
+

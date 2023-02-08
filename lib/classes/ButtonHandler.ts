@@ -1,37 +1,26 @@
-/* eslint-disable import/order */
+import {
+    ButtonInteraction,
+    Interaction,
+    InteractionReplyOptions
+} from "discord.js";
 import Button from "./Button.js";
-import { ButtonInteraction } from "discord.js";
-import BetterClient from "../extensions/BetterClient.js";
+import Language from "./Language.js";
+import ExtendedClient from "../extensions/ExtendedClient.js";
 
 export default class ButtonHandler {
-    /**
-     * Our client.
-     */
-    private readonly client: BetterClient;
+    /** Our extended client. */
+    public readonly client: ExtendedClient;
 
     /**
-     * How long a user must wait between each button.
+     * Create our button handler.
+     * @param client Our extended client.
      */
-    private readonly coolDownTime: number;
-
-    /**
-     * Our user's cooldowns.
-     */
-    private readonly coolDowns: Set<string>;
-
-    /**
-     * Create our ButtonHandler.
-     * @param client Our client.
-     */
-    constructor(client: BetterClient) {
+    constructor(client: ExtendedClient) {
         this.client = client;
-
-        this.coolDownTime = 1000;
-        this.coolDowns = new Set();
     }
 
     /**
-     * Load all the buttons in the buttons directory.
+     * Load all of the buttons in the buttons directory.
      */
     public loadButtons() {
         this.client.functions
@@ -43,118 +32,128 @@ export default class ButtonHandler {
                         ".js"
                     )
                     .forEach(async fileName => {
-                        const buttonFile = await import(
+                        const ButtonFile = await import(
                             `../../src/bot/buttons/${parentFolder}/${fileName}`
                         );
-                        // eslint-disable-next-line new-cap
-                        const button: Button = new buttonFile.default(
+
+                        // @ts-ignore
+                        const button = new ButtonFile.default(
                             this.client
-                        );
+                        ) as Button;
+
                         return this.client.buttons.set(button.name, button);
                     })
             );
     }
 
     /**
-     * Reload all the buttons in the buttons directory.
+     * Reload all of the buttons.
      */
     public reloadButtons() {
-        this.client.buttons.clear();
+        this.client.autoCompletes.clear();
         this.loadButtons();
     }
 
     /**
-     * Fetch the button that starts with the provided customId.
-     * @param customId The customId to search for.
-     * @returns The button we've found.
+     * Get a button by its name.
+     * @param name The name of the button.
+     * @returns The button with the specified name, otherwise undefined.
      */
-    private fetchButton(customId: string): Button | undefined {
-        return this.client.buttons.find(button =>
-            customId.startsWith(button.name)
-        );
+    private getButton(name: string) {
+        return this.client.buttons.find(button => name.startsWith(button.name));
     }
 
-    /**
-     * Handle the interaction created for this button to make sure the user and client can execute it.
-     * @param interaction The interaction created.
+    /** Handle an interaction properly to ensure that it can invoke a button.
+     * @param interaction The interaction that is attempting to invoke a button.
      */
     public async handleButton(interaction: ButtonInteraction) {
-        const button = this.fetchButton(interaction.customId);
-        if (
-            !button ||
-            (process.env.NODE_ENV === "development" &&
-                !this.client.functions.isAdmin(interaction.user.id))
-        )
-            return;
+        const button = this.getButton(interaction.customId);
+        if (!button) return;
 
-        const missingPermissions = button.validate(interaction);
+        const userLanguage = await this.client.prisma.userLanguage.findUnique({
+            where: { userId: interaction.user.id }
+        });
+        const language = this.client.languageHandler.getLanguage(
+            userLanguage?.languageId || interaction.locale
+        );
+
+        const missingPermissions = await button.validate(interaction, language);
         if (missingPermissions)
-            return interaction.reply(
-                this.client.functions.generateErrorMessage(missingPermissions)
-            );
+            return interaction.reply({
+                embeds: [
+                    {
+                        ...missingPermissions,
+                        color: this.client.config.colors.error
+                    }
+                ],
+                ephemeral: true
+            });
 
-        const preChecked = await button.preCheck(interaction);
-        if (!preChecked[0]) {
-            if (preChecked[1])
-                await interaction.reply(
-                    this.client.functions.generateErrorMessage(preChecked[1])
-                );
+        const [preChecked, preCheckedResponse] = await button.preCheck(
+            interaction,
+            language
+        );
+        if (!preChecked) {
+            if (preCheckedResponse)
+                await interaction.reply({
+                    embeds: [
+                        {
+                            ...preCheckedResponse,
+                            color: this.client.config.colors.error
+                        }
+                    ],
+                    ephemeral: true
+                });
+
             return;
         }
 
-        return this.runButton(button, interaction);
+        return this.runButton(button, interaction, language);
     }
 
     /**
-     * Execute our button.
-     * @param button The button we want to execute.
-     * @param interaction The interaction for our button.
+     * Run a button.
+     * @param button The button we want to run.
+     * @param interaction The interaction that invoked the auto complete.
+     * @param language The language to use when replying to the interaction.
      */
-    private async runButton(button: Button, interaction: ButtonInteraction) {
-        if (this.coolDowns.has(interaction.user.id))
-            return interaction.reply(
-                this.client.functions.generateErrorMessage({
-                    title: "Command Cooldown",
-                    description:
-                        "Please wait a second before running this button again!"
-                })
-            );
+    private async runButton(
+        button: Button,
+        interaction: ButtonInteraction,
+        language: Language
+    ) {
+        button.run(interaction, language).catch(async error => {
+            this.client.logger.error(error);
 
-        this.client.usersUsingBot.add(interaction.user.id);
-        button
-            .run(interaction)
-            .then(() => {
-                this.client.usersUsingBot.delete(interaction.user.id);
-                this.client.dataDog.increment("buttonUsage", 1, [
-                    `button:${button.name}`
-                ]);
-            })
-            .catch(async (error): Promise<any> => {
-                this.client.logger.error(error);
-                const sentryId =
-                    await this.client.logger.sentry.captureWithInteraction(
-                        error,
-                        interaction
-                    );
-                const toSend = this.client.functions.generateErrorMessage(
-                    {
-                        title: "An Error Has Occurred",
-                        description: `An unexpected error was encountered while running this button, my developers have already been notified! Feel free to join my support server in the mean time!`,
-                        footer: { text: `Sentry Event ID: ${sentryId} ` }
-                    },
-                    true
+            const sentryId =
+                await this.client.logger.sentry.captureWithInteraction(
+                    error,
+                    interaction as Interaction
                 );
-                if (interaction.replied) return interaction.followUp(toSend);
-                else
-                    return interaction.reply({
-                        ...toSend
-                    });
-            });
-        this.coolDowns.add(interaction.user.id);
-        return setTimeout(
-            () => this.coolDowns.delete(interaction.user.id),
-            this.coolDownTime
-        );
+
+            const toSend = {
+                embeds: [
+                    {
+                        title: language.get("AN_ERROR_HAS_OCCURRED_TITLE"),
+                        description: language.get(
+                            "AN_ERROR_HAS_OCCURRED_DESCRIPTION",
+                            {
+                                name: button.name,
+                                type: "button"
+                            }
+                        ),
+                        footer: {
+                            text: `Sentry Event ID: ${sentryId}`
+                        },
+                        color: this.client.config.colors.error
+                    }
+                ],
+                ephemeral: true
+            } satisfies InteractionReplyOptions;
+
+            if (!interaction.replied) return interaction.reply(toSend);
+            else return interaction.followUp(toSend);
+        });
     }
 }
 

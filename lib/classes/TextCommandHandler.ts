@@ -1,33 +1,27 @@
-import { Snowflake } from "discord.js";
-import TextCommand from "./TextCommand.js";
-import BetterClient from "../extensions/BetterClient.js";
-import BetterMessage from "../extensions/BetterMessage.js";
+import { Message } from "discord.js";
+import Language from "./Language.js";
+import TextCommand from "./TextCommand";
+import ExtendedClient from "../extensions/ExtendedClient.js";
 
 export default class TextCommandHandler {
-    /**
-     * Our client.
-     */
-    private readonly client: BetterClient;
+    /** Our extended client. */
+    public readonly client: ExtendedClient;
+
+    /** How long a user must wait before being able to run a text command again. */
+    public readonly coolDownTime: number;
+
+    /** A list of user IDs that currently have a cooldown applied. */
+    public readonly cooldowns: Set<string>;
 
     /**
-     * How long a user must wait between each text command.
+     * Create our text command handler.
+     * @param client Our extended client.
      */
-    private readonly coolDownTime: number;
-
-    /**
-     * Our user's cooldowns.
-     */
-    private coolDowns: Set<Snowflake>;
-
-    /**
-     * Create our TextCommandHandler.
-     * @param client
-     */
-    constructor(client: BetterClient) {
+    constructor(client: ExtendedClient) {
         this.client = client;
 
-        this.coolDownTime = 1000;
-        this.coolDowns = new Set();
+        this.coolDownTime = 200;
+        this.cooldowns = new Set();
     }
 
     /**
@@ -47,30 +41,25 @@ export default class TextCommandHandler {
                         ".js"
                     )
                     .forEach(async fileName => {
-                        try {
-                            const commandFile = await import(
-                                `../../src/bot/textCommands/${parentFolder}/${fileName}`
-                            );
-                            // eslint-disable-next-line new-cap
-                            const command: TextCommand =
-                                // eslint-disable-next-line new-cap
-                                new commandFile.default(this.client);
-                            return this.client.textCommands.set(
-                                command.name,
-                                command
-                            );
-                        } catch (error) {
-                            this.client.logger.error(
-                                `Error loading text command ${fileName}: ${error}`
-                            );
-                        }
-                        return null;
+                        const CommandFile = await import(
+                            `../../src/bot/textCommands/${parentFolder}/${fileName}`
+                        );
+
+                        // @ts-ignore
+                        const command = new CommandFile.default(
+                            this.client
+                        ) as TextCommand;
+
+                        return this.client.textCommands.set(
+                            command.name,
+                            command
+                        );
                     })
             );
     }
 
     /**
-     * Reload all the text commands in the textCommands directory.
+     * Reload all of the text commands.
      */
     public reloadTextCommands() {
         this.client.textCommands.clear();
@@ -78,99 +67,158 @@ export default class TextCommandHandler {
     }
 
     /**
-     * Fetch the text command that has the provided name.
-     * @param name The name to search for.
-     * @private The text command we've found.
+     * Get a text command by its name.
+     * @param name The name of the text command.
+     * @returns The text command with the specified name if it exists, otherwise undefined.
      */
-    private fetchCommand(name: string): TextCommand | undefined {
-        return this.client.textCommands.get(name);
+    private getTextCommand(name?: string) {
+        return this.client.textCommands.get(name || "");
     }
 
     /**
-     * Handle the message created for this text command to make sure the user and client can execute it.
-     * @param message The message created.
+     * Handle an interaction properly to ensure that it can invoke an application command.
+     * @param interaction The interaction that is attempting to invoke an application command.
      */
-    public async handleCommand(message: BetterMessage) {
-        const prefix = this.client.config.prefixes.find(p =>
-            message.content.startsWith(p)
+    public async handleTextCommand(message: Message) {
+        const validPrefix = this.client.config.prefixes.find(prefix =>
+            message.content.startsWith(prefix)
         );
-        if (!prefix) return;
-        const args = message.content.slice(prefix.length).trim().split(/ +/g);
-        const commandName = args.shift()?.toLowerCase();
-        const command = this.fetchCommand(commandName || "");
-        if (
-            !command ||
-            (process.env.NODE_ENV === "development" &&
-                !this.client.functions.isAdmin(message.author.id))
-        )
-            return;
+        if (!validPrefix) return;
 
-        const missingPermissions = await command.validate(message);
+        const userLanguage = await this.client.prisma.userLanguage.findUnique({
+            where: {
+                userId: message.author.id
+            }
+        });
+        const language = this.client.languageHandler.getLanguage(
+            userLanguage?.languageId
+        );
+
+        const textCommandArguments = message.content
+            .slice(validPrefix.length)
+            .trim()
+            .split(/ +/g);
+        const textCommandName = textCommandArguments.shift()?.toLowerCase();
+        const textCommand = this.getTextCommand(textCommandName);
+        if (!textCommand) return;
+
+        const missingPermissions = await textCommand.validate(
+            message,
+            language
+        );
         if (missingPermissions)
-            return message.reply(
-                this.client.functions.generateErrorMessage(missingPermissions)
-            );
+            return message.reply({
+                embeds: [
+                    {
+                        ...missingPermissions,
+                        color: this.client.config.colors.error
+                    }
+                ]
+            });
 
-        const preChecked = await command.preCheck(message);
-        if (!preChecked[0]) {
-            if (preChecked[1])
-                await message.reply(
-                    this.client.functions.generateErrorMessage(preChecked[1])
-                );
+        const [preChecked, preCheckedResponse] = await textCommand.preCheck(
+            message,
+            language
+        );
+        if (!preChecked) {
+            if (preCheckedResponse) {
+                return message.reply({
+                    embeds: [
+                        {
+                            ...preCheckedResponse,
+                            color: this.client.config.colors.error
+                        }
+                    ]
+                });
+            }
             return;
         }
 
-        return this.runCommand(command, message, args);
+        return this.runTextCommand(textCommand, message, language);
     }
 
     /**
-     * Execute our text command.
-     * @param command The text command we want to execute.
-     * @param message The message that was created for our text command.
-     * @param args The arguments for our text command.
+     * Run a text command.
+     * @param applicationCommand The application command we want to run.
+     * @param interaction The interaction that invoked the application command.
+     * @param language The language to use when replying to the interaction.
      */
-    // @ts-ignore
-    private async runCommand(
-        command: TextCommand,
-        message: BetterMessage,
-        args: string[]
+    private async runTextCommand(
+        textCommand: TextCommand,
+        message: Message,
+        language: Language
     ) {
-        if (this.coolDowns.has(message.author.id))
-            return message.reply(
-                this.client.functions.generateErrorMessage({
-                    title: "Command Cooldown",
-                    description:
-                        "Please wait a second before running this command again!"
-                })
-            );
+        if (this.cooldowns.has(message.author.id))
+            return message.reply({
+                embeds: [
+                    {
+                        title: language.get("COOLDOWN_ON_TYPE_TITLE", {
+                            type: "Command"
+                        }),
+                        description: language.get(
+                            "COOLDOWN_ON_TYPE_DESCRIPTION",
+                            { type: "command" }
+                        ),
+                        color: this.client.config.colors.error
+                    }
+                ]
+            });
 
         this.client.usersUsingBot.add(message.author.id);
-        command
-            .run(message, args)
-            .then(() => {
+
+        textCommand
+            .run(message, language)
+            .then(async () => {
+                if (textCommand.cooldown)
+                    await textCommand.applyCooldown(message.author.id);
+
                 this.client.usersUsingBot.delete(message.author.id);
-                this.client.dataDog.increment("textCommandUsage", 1, [
-                    `command:${command.name}`
-                ]);
+                // TODO: Implement Grafana or Datadog and add metrics here.
+                this.client.metrics.incrementCommandUse(
+                    textCommand.name,
+                    "text",
+                    true,
+                    this.client.shard?.ids[0] ?? 0
+                );
             })
-            .catch(async (error): Promise<any> => {
+            .catch(async error => {
+                this.client.metrics.incrementCommandUse(
+                    textCommand.name,
+                    "text",
+                    false,
+                    this.client.shard?.ids[0] ?? 0
+                );
                 this.client.logger.error(error);
+
                 const sentryId =
                     await this.client.logger.sentry.captureWithMessage(
                         error,
                         message
                     );
-                return message.reply(
-                    this.client.functions.generateErrorMessage({
-                        title: "An Error Has Occurred",
-                        description: `An unexpected error was encountered while running \`${command.name}\`, my developers have already been notified! Feel free to join my support server in the mean time!`,
-                        footer: { text: `Sentry Event ID: ${sentryId} ` }
-                    })
-                );
+
+                return message.reply({
+                    embeds: [
+                        {
+                            title: language.get("AN_ERROR_HAS_OCCURRED_TITLE"),
+                            description: language.get(
+                                "AN_ERROR_HAS_OCCURRED_DESCRIPTION",
+                                {
+                                    name: textCommand.name.toLowerCase(),
+                                    type: "text command"
+                                }
+                            ),
+                            footer: {
+                                text: `Sentry Event ID: ${sentryId}}`
+                            },
+                            color: this.client.config.colors.error
+                        }
+                    ]
+                });
             });
-        this.coolDowns.add(message.author.id);
+
+        this.cooldowns.add(message.author.id);
         setTimeout(
-            () => this.coolDowns.delete(message.author.id),
+            () => this.cooldowns.delete(message.author.id),
             this.coolDownTime
         );
     }

@@ -1,13 +1,13 @@
 import { format } from "util";
 import { load } from "dotenv-extended";
 import * as Sentry from "@sentry/node";
-import { Interaction } from "discord.js";
-import BetterMessage from "../extensions/BetterMessage";
+import { Interaction, Message } from "discord.js";
 
 load({
-    path: process.env.NODE_ENV === "development" ? ".env.dev" : ".env.prod"
+    path: process.env.NODE_ENV === "production" ? ".env.prod" : ".env.dev"
 });
 
+/** We basically extend the functionality of Sentry's init function here as we tack on a couple of our own custom error handlers. */
 export default function init() {
     Sentry.init({
         tracesSampleRate: 1,
@@ -47,10 +47,7 @@ export default function init() {
          * @param message The message that caused the error.
          * @return The sentry error ID.
          */
-        captureWithMessage: (
-            error: any,
-            message: BetterMessage
-        ): Promise<string> => {
+        captureWithMessage: (error: any, message: Message): Promise<string> => {
             return new Promise((resolve, _) => {
                 Sentry.withScope(scope => {
                     scope.setExtra("Environment", process.env.NODE_ENV);
