@@ -4,6 +4,7 @@ import { ShardingManager } from "discord.js";
 import Config from "../config/bot.config.js";
 import Logger from "../lib/classes/Logger.js";
 import Functions from "../lib/utilities/functions.js";
+import ExtendedClient from "../lib/extensions/ExtendedClient.js";
 
 load({
     path: process.env.NODE_ENV === "production" ? ".env.prod" : ".env.dev"
@@ -33,11 +34,13 @@ manager
                         const shardId =
                             (message.guildId >> 22) % shard.manager.shards.size;
 
-                        Logger.debug(shardId);
-
                         manager.shards
                             .get(shardId)
-                            ?.emit("beemoMessageCreate", message);
+                            ?.eval(
+                                (client, { m }) =>
+                                    client.emit("beemoMessageCreate", m),
+                                { m: message }
+                            );
                     }
                 }
             });

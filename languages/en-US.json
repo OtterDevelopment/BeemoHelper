@@ -82,5 +82,9 @@
     "LANGUAGE_SET_TITLE": "Language Set",
     "LANGUAGE_SET_DESCRIPTION": "The language has been set to {{language}}!",
     "INVALID_INTERACTION_TITLE": "Invalid Interaction",
-    "INVALID_INTERACTION_DESCRIPTION": "I don't support this type of interaction!"
+    "INVALID_INTERACTION_DESCRIPTION": "I don't support this type of interaction!",
+    "ACTION_LOG_SET_TITLE": "Action Log Set",
+    "ACTION_LOG_SET_DESCRIPTION": "The action log for this server has been set to {{actionLogChannel}}!",
+    "ACTION_LOG_REMOVED_TITLE": "Action Log Removed",
+    "ACTION_LOG_REMOVED_DESCRIPTION": "The action log for this server has been removed!"
 }

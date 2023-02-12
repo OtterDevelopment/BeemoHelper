@@ -78,6 +78,12 @@ export default class Metrics {
         labelNames: ["shard", "guildId", "reason"]
     });
 
+    private readonly successfulRaids = new Gauge({
+        name: "successful_raids",
+        help: "The total number of raids that have been successfully detected.",
+        labelNames: ["shard", "guildId", "raidersBanned"]
+    });
+
     /**
      * Create our Metrics class.
      * @param client Our extended client.
@@ -152,6 +158,14 @@ export default class Metrics {
 
     public incrementFailedBans(guildId: string, shard: number, reason: string) {
         this.failedBans.inc({ guildId, shard, reason });
+    }
+
+    public incrementSuccessfulRaids(
+        guildId: string,
+        shard: number,
+        raidersBanned: number
+    ) {
+        this.successfulRaids.inc({ guildId, shard, raidersBanned });
     }
 }
 

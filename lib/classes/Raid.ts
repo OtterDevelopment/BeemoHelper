@@ -38,7 +38,7 @@ export default class Raid {
      * Our REST clients for this raid.
      */
     private restClients = {
-        "769772015447703592": new REST({}).setToken(process.env.DISCORD_TOKEN),
+        "925267402072154133": new REST({}).setToken(process.env.DISCORD_TOKEN),
         "990765511950348298": new REST({}).setToken(process.env.DISCORD_TOKEN)
     };
 
@@ -81,8 +81,11 @@ export default class Raid {
 
         const maxNumber = restClientsToUse.length - 1;
         let currentNumber = 0;
+        let currentIndex = -1;
 
-        const membersToBan = this.userIds.filter(userId => members.has(userId));
+        const membersToBan = this.userIds.filter(
+            userId => !members.has(userId)
+        );
         if (!membersToBan.length) {
             this.client.metrics.incrementFailedRaids(
                 this.guild.id,
@@ -91,7 +94,7 @@ export default class Raid {
             );
 
             return this.client.logger.info(
-                `No members to ban in ${this.guild.name} (${this.guild.id}) for ${this.logUrl}.`
+                `No members to ban in ${this.guild.name} [${this.guild.id}] (${this.logUrl}).`
             );
         }
 
@@ -101,7 +104,7 @@ export default class Raid {
         });
 
         for (const userId of membersToBan) {
-            if (!members.has(userId)) {
+            if (members.has(userId)) {
                 this.client.metrics.incrementFailedBans(
                     this.guild.id,
                     this.guild.shardId,
@@ -109,13 +112,15 @@ export default class Raid {
                 );
 
                 this.client.logger.info(
-                    `User ${userId} is not in the guild ${this.guild.name} (${this.guild.id}) for ${this.logUrl}.`
+                    `User ${userId} is not in the guild ${this.guild.name} [${this.guild.id}] (${this.logUrl}).`
                 );
 
                 continue;
             }
 
             try {
+                currentIndex++;
+
                 await restClientsToUse[currentNumber].put(
                     Routes.guildBan(this.guild.id, userId),
                     {
@@ -124,6 +129,14 @@ export default class Raid {
                 );
 
                 this.bannedMembers.push(userId);
+
+                this.client.logger.info(
+                    `Successfully banned ${userId} (${currentIndex + 1}/${
+                        membersToBan.length
+                    }) in ${this.guild.name} [${this.guild.id}] (${
+                        this.logUrl
+                    }).`
+                );
                 currentNumber =
                     currentNumber >= maxNumber ? 0 : currentNumber + 1;
             } catch (error) {
@@ -135,8 +148,12 @@ export default class Raid {
                             "MISSING_PERMISSIONS"
                         );
 
-                        return this.client.logger.info(
-                            `Missing permissions to ban ${userId} in ${this.guild.name} (${this.guild.id}) for ${this.logUrl}.`
+                        this.client.logger.info(
+                            `Missing permissions to ban ${userId} (${
+                                currentIndex + 1
+                            }/${membersToBan.length}) in ${this.guild.name} [${
+                                this.guild.id
+                            }] (${this.logUrl}).`
                         );
                     } else if (error.code === 30035) {
                         this.client.metrics.incrementFailedBans(
@@ -146,16 +163,36 @@ export default class Raid {
                         );
 
                         return this.client.logger.info(
-                            `Can't ban ${userId} because ${this.guild.name} (${this.guild.id}) has reached it's max guild bans (${this.logUrl}).`
+                            `Can't ban ${userId} (${currentIndex + 1}/${
+                                membersToBan.length
+                            }) because ${this.guild.name} [${
+                                this.guild.id
+                            }] has reached it's max guild bans (${
+                                this.logUrl
+                            }).`
+                        );
+                    } else if (error.code === 10013) {
+                        this.client.metrics.incrementFailedBans(
+                            this.guild.id,
+                            this.guild.shardId,
+                            "INVALID_USER"
+                        );
+
+                        this.client.logger.info(
+                            `Can't ban ${userId} (${currentIndex + 1}/${
+                                membersToBan.length
+                            }) because they are no longer a user from raid in ${
+                                this.guild.name
+                            } [${this.guild.id}] (${this.logUrl}).`
                         );
                     }
+                } else {
+                    this.client.logger.error(error);
+                    this.client.logger.sentry.captureWithExtras(error, {
+                        event: "Beeemo Message Create",
+                        guild: this.guild
+                    });
                 }
-
-                this.client.logger.error(error);
-                this.client.logger.sentry.captureWithExtras(error, {
-                    event: "Beeemo Message Create",
-                    guild: this.guild
-                });
             }
         }
     }

@@ -22,8 +22,6 @@ const client: ExtendedClient = new ExtendedClient({
         GuildMemberManager: {
             maxSize: 200,
             keepOverLimit: member => {
-                client.logger.debug("ffsdfsd", client.user?.id);
-
                 return (
                     client.usersUsingBot.has(member.id) ||
                     member.id === member.client.user?.id

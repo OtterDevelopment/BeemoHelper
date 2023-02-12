@@ -52,7 +52,7 @@ export default class Ping extends ApplicationCommand {
             embeds: [
                 {
                     description:
-                        "Server Raided: **depression's antidote | mental health ・ anime chat help stickers art vc** (`925264080250494977`)\n\nRaid Size: **5,365 accounts**\n\nFull Log: **https://logs.beemo.gg/antispam/9kObuaWetUy4**",
+                        "Server Raided: **depression's antidote | mental health ・ anime chat help stickers art vc** (`925264080250494977`)\n\nRaid Size: **5,365 accounts**\n\nFull Log: **https://logs.beemo.gg/antispam/m7n77t0GTDH6**",
                     footer: {
                         text: "Note that the accounts associated with this raid are being banned but that large raids may take a while due to Discord ratelimits."
                     },
