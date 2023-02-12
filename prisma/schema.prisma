@@ -1,0 +1,41 @@
+datasource db {
+    // Change provider to whichever provide you're using.
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+generator client {
+    provider   = "prisma-client-js"
+    engineType = "binary"
+}
+
+enum CommandType {
+    TEXT_COMMAND
+    APPLICATION_COMMAND
+}
+
+model Cooldown {
+    userId      String
+    commandName String
+
+    expiresAt DateTime
+
+    commandType CommandType
+
+    @@id([commandName, commandType, userId])
+    @@map("command_cooldowns")
+}
+
+model UserLanguage {
+    userId     String @id
+    languageId String
+
+    @@map("user_languages")
+}
+
+model ActionLog {
+    guildId   String @id
+    channelId String
+
+    @@map("action_logs")
+}

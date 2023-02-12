@@ -2,46 +2,60 @@ import { Interaction } from "discord.js";
 import EventHandler from "../../../lib/classes/EventHandler.js";
 
 export default class InteractionCreate extends EventHandler {
-    override async run(interaction: Interaction) {
-        this.client.logger.info(
-            `${interaction.type} interaction created: ${interaction.toString()}`
+    /**
+     * Handle the creation of an interaction.
+     * @param interaction The interaction that was created.
+     */
+    public override async run(interaction: Interaction) {
+        this.client.metrics.incrementInteractionCreate(
+            // eslint-disable-next-line no-nested-ternary
+            interaction.isMessageComponent()
+                ? interaction.customId
+                : interaction.isCommand()
+                ? interaction.commandName
+                : "unknown",
+            interaction.type,
+            this.client.shard?.ids[0] ?? 0
         );
-        // @ts-ignore
-        if (this.client.mongo.topology.s.state !== "connected")
-            // @ts-ignore
-            return interaction.reply(
-                this.client.functions.generateErrorMessage(
-                    {
-                        title: "Not Ready",
-                        description:
-                            "I'm not ready yet, please try again in a moment!"
-                    },
-                    true
-                )
+        this.client.metrics.incrementUserLocale(
+            interaction.locale,
+            this.client.shard?.ids[0] ?? 0
+        );
+
+        if (interaction.isCommand() || interaction.isContextMenuCommand())
+            return this.client.applicationCommandHandler.handleApplicationCommand(
+                interaction
             );
-        if (interaction.isCommand()) {
-            this.client.stats.commandsRun++;
-            return this.client.slashCommandHandler.handleCommand(interaction);
-        } else if (interaction.isButton())
-            return this.client.buttonHandler.handleButton(interaction);
-        else if (interaction.isSelectMenu())
-            return this.client.dropDownHandler.handleDropDown(interaction);
         else if (interaction.isAutocomplete())
             return this.client.autoCompleteHandler.handleAutoComplete(
                 interaction
             );
-        const error = new Error("Invalid Interaction: Never seen this before.");
-        this.client.logger.error(error);
-        this.client.logger.sentry.captureWithInteraction(error, interaction);
-        // @ts-ignore
-        return interaction.reply(
-            this.client.functions.generateErrorMessage(
-                {
-                    title: "Invalid Interaction",
-                    description: "I've never seen this type of interaction"
-                },
-                true
-            )
-        );
+        else if (interaction.isButton())
+            return this.client.buttonHandler.handleButton(interaction);
+
+        if (interaction.isRepliable()) {
+            const userLanguage =
+                await this.client.prisma.userLanguage.findUnique({
+                    where: {
+                        userId: interaction.user.id
+                    }
+                });
+            const language = this.client.languageHandler.getLanguage(
+                userLanguage?.languageId || interaction.locale
+            );
+
+            return interaction.reply({
+                embeds: [
+                    {
+                        title: language.get("INVALID_INTERACTION_TITLE"),
+                        description: language.get(
+                            "INVALID_INTERACTION_DESCRIPTION"
+                        ),
+                        color: this.client.config.colors.error
+                    }
+                ],
+                ephemeral: true
+            });
+        }
     }
 }

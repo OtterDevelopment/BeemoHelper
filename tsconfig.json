@@ -1,33 +1,25 @@
 {
-	"compilerOptions": {
-	  "target": "ESNext",
-	  "module": "ESNext",
-	  "moduleResolution": "node",
-	  "lib": ["ESNext", "DOM"], // Add DOM for native fetch.
-  
-	  "rootDir": ".",
-	  "outDir": "dist",
-  
-	  "strict": true,
-	  "alwaysStrict": true,
-	  "strictFunctionTypes": true,
-	  "strictNullChecks": true,
-	  "strictPropertyInitialization": true,
-	  "allowSyntheticDefaultImports": true,
-  
-	  "forceConsistentCasingInFileNames": true,
-	  "noImplicitAny": true,
-	  "noImplicitThis": true,
-	  "noFallthroughCasesInSwitch": true,
-	  "noUnusedLocals": true,
-	  "noUnusedParameters": true,
-	  "noImplicitOverride": true,
-  
-	  "skipLibCheck": true,
-  
-	  "pretty": true,
-  
-	  "typeRoots": ["node_modules/@types", "typings/"]
-	},
-	"main": "src/index.ts"
-  }
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "node",
+        "lib": ["ESNext", "DOM"],
+
+        "rootDir": ".",
+        "outDir": "dist",
+
+        "strict": true,
+
+        "forceConsistentCasingInFileNames": true,
+        "allowSyntheticDefaultImports": true,
+        "resolveJsonModule": true,
+
+        "skipLibCheck": true,
+
+        "pretty": true,
+
+        "typeRoots": ["node_modules/@types", "typings/"]
+    },
+    "include": ["src/", "languages/*.json", "lib/", "typings/"],
+    "main": "src/index.ts"
+}

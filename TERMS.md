@@ -24,15 +24,15 @@ The key words "MUST NOT", "SHALL NOT", "MAY" in all of the following portions of
 
 Inviting, using and participating in guilds with Beemo Helper constitutes your agreement to the terms below.
 
-- You SHALL NOT automate your usage of the bot.
+-   You SHALL NOT automate your usage of the bot.
 
-- You MUST NOT attempt to abuse, exploit or otherwise misuse Beemo Helper in any way.
+-   You MUST NOT attempt to abuse, exploit or otherwise misuse Beemo Helper in any way.
 
-- You MUST NOT use Beemo Helper to post any content that is deemed Not Safe for Work ("NSFW") in areas where a user does not have to verify their age.
+-   You MUST NOT use Beemo Helper to post any content that is deemed Not Safe for Work ("NSFW") in areas where a user does not have to verify their age.
 
-- You MUST NOT violate the personal, intellectual property or other rights of any party including using, uploading, transmitting or distributing information in any manner that infringes said rights through Beemo Helper.
+-   You MUST NOT violate the personal, intellectual property or other rights of any party including using, uploading, transmitting or distributing information in any manner that infringes said rights through Beemo Helper.
 
-- You agree that your use of the Service will not include sending unsolicited marketing messages or broadcasts (i.e., spam) or infract the Terms of Service of any chat or social platform.
+-   You agree that your use of the Service will not include sending unsolicited marketing messages or broadcasts (i.e., spam) or infract the Terms of Service of any chat or social platform.
 
 ## Use of a third-party services
 

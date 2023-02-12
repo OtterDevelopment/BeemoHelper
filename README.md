@@ -11,3 +11,4 @@ Once Beemo detects a raid Beemo Helper will start banning users from Beemo Logs 
 ## Join The Following Server For Support or [**Invite Beemo Helper**](https://discord.com/api/oauth2/authorize?client_id=769772015447703592&permissions=52228&redirect_uri=https%3A%2F%2Fdiscord.gg%2FhkDuZfpfBB&scope=bot%20applications.commands)
 
 [![Discord Invite Widget](https://inv.wtf/widget/polar)](https://inv.wtf/polar)
+

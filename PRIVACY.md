@@ -6,7 +6,7 @@
 
 Data collected by Beemo Helper ("we", "us") and any related applications is solely used to provide the service(s). Data may be collected when using any service with the Beemo Helper branding or on domains including but not limited to;
 
-- polar.blue
+-   polar.blue
 
 ## What information do you collect?
 

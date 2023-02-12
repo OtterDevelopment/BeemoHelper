@@ -1,113 +1,90 @@
-import { Guild, PermissionResolvable, TextChannel } from "discord.js";
-import EventHandler from "../../../lib/classes/EventHandler.js";
-import BetterMessage from "../../../lib/extensions/BetterMessage.js";
+import { APIEmbed, TextChannel } from "discord.js";
 import Raid from "../../../lib/classes/Raid.js";
+import Config from "../../../config/bot.config.js";
+import EventHandler from "../../../lib/classes/EventHandler.js";
 
 export default class BeemoMessageCreate extends EventHandler {
     /**
-     * The global action log for Beemo Helper.
+     * Handle the creation of a message.
+     * @param message The message that was created.
      */
-    private globalActionLog?: TextChannel;
-
-    override async run(message: BetterMessage) {
-        this.client.logger.debug("beemoMessageCreate event emitted");
-
-        if (
-            message.embeds[0]?.author?.name !==
-            "Userbot raid detected by antispam"
-        )
-            return;
-        else if (!this.globalActionLog) {
-            this.client.logger.debug(0);
-            const channels = (await this.client.shard?.broadcastEval(
-                async client =>
-                    client.channels.cache.get(
-                        this.client.config.otherConfig.helperGlobalLogChannelId
-                    )
-            )) as Array<TextChannel | null>;
-            this.client.logger.debug(1);
-
-            const channel = channels?.filter(Boolean)[0];
-
-            if (!channel)
-                return this.client.logger.info(
-                    "Global action log channel not found."
-                );
-
-            this.globalActionLog = channel as TextChannel;
-        }
-
-        const guildId = message.embeds[0].description?.match(/\d{17,19}/g);
-        this.client.dataDog.increment("totalRaids", 1, [`guild:${guildId}`]);
-
-        const guilds = (await this.client.shard?.broadcastEval(async client =>
-            client.guilds.cache.get(guildId?.[0] || "")
-        )) as Array<Guild | null>;
-
-        const guild = guilds?.filter(Boolean)[0];
+    public override async run(message: {
+        type: "raid";
+        guildId: string;
+        logURL: string;
+        messageDescription: string;
+    }) {
+        const guild = this.client.guilds.cache.get(message.guildId);
         if (!guild) return;
 
-        this.client.logger.info(
-            `Beemo has found a raid in ${guild.name} [${guild.id}]`
-        );
-
-        if (!guild.me?.permissions.has("BAN_MEMBERS")) {
-            this.client.dataDog.increment(
-                "abandonedRaids.missingPermissions",
-                1,
-                [`guild:${guildId}`, "missingPermission:BAN_MEMBERS"]
+        if (!guild.members.me?.permissions.has("BanMembers")) {
+            this.client.metrics.incrementFailedRaids(
+                guild.id,
+                guild.shardId,
+                "MISSING_BAN_MEMBERS"
             );
+
             return this.client.logger.info(
-                `Skipping raid in ${guild.name} [${guild.id}] as I don't have the BAN_MEMBERS permission.`
+                `Skipping raid in ${guild.name} [$${guild.id}] as I don't have the Ban Members permission.`
             );
         }
 
-        const actionLog = await this.client.mongo
-            .db("servers")
-            .collection("actionLogs")
-            .findOne({ _id: guild.id });
-        const actionLogChannel = guild.channels.cache.get(actionLog?.channel);
-        if (!actionLogChannel) {
-            this.client.dataDog.increment(
-                "abandonedRaids.missingActionLogChannel",
-                1,
-                [`guild:${guildId}`]
+        const actionLog = await this.client.prisma.actionLog.findUnique({
+            where: { guildId: guild.id }
+        });
+        if (!actionLog) {
+            this.client.metrics.incrementFailedRaids(
+                guild.id,
+                guild.shardId,
+                "NO_ACTION_LOG"
             );
+
             return this.client.logger.info(
-                `Skipping raid in ${guild.name} [${guild.id}] as they don't have an action log set.`
+                `Skipping raid in ${guild.name} [$${guild.id}] as there is no action log set up.`
             );
+        }
+
+        const actionLogChannel = guild.channels.cache.get(actionLog.channelId);
+        if (!actionLogChannel) {
+            this.client.metrics.incrementFailedRaids(
+                guild.id,
+                guild.shardId,
+                "NO_ACTION_LOG"
+            );
+
+            this.client.logger.info(
+                `Skipping raid in ${guild.name} [$${guild.id}] as the action log no longer exists.`
+            );
+
+            return this.client.prisma.actionLog.delete({
+                where: { guildId: guild.id }
+            });
         } else if (
             !actionLogChannel
-                .permissionsFor(guild.me)
-                .has(["VIEW_CHANNEL", "SEND_MESSAGES"])
+                .permissionsFor(guild.members.me)
+                .has(["ViewChannel", "SendMessages"])
         ) {
-            this.client.dataDog.increment(
-                "abandonedRaids.missingPermissions",
-                1,
-                [`guild:${guildId}`].concat(
-                    ["VIEW_CHANNEL", "SEND_MESSAGES"]
-                        .filter(
-                            permission =>
-                                !actionLogChannel
-                                    .permissionsFor(guild.me!)
-                                    .has(permission as PermissionResolvable)
-                        )
-                        .map(permission => `missingPermission:${permission}`)
-                )
+            this.client.metrics.incrementFailedRaids(
+                guild.id,
+                guild.shardId,
+                "MISSING_VIEW_SEND_PERMISSIONS"
             );
-            return this.client.logger.info(
-                `Skipping raid in ${guild.name} [${guild.id}] as I don't have the VIEW_CHANNEL or SEND_MESSAGES permissions in their action log.`
+
+            return this.client.logger.debug(
+                `Skipping raid in ${guild.name} [$${guild.id}] as I don't have the View Channel and or Send Messages permissions in the action log.`
             );
         }
-        const logUrl = message.embeds[0].description!.match(
+
+        const logURL = message.messageDescription.match(
             /https:\/\/logs.beemo.gg\/antispam\/[\w]*/g
         )![0];
-        const response = await fetch(logUrl);
+        const response = await fetch(logURL);
         const logText = await response.text();
+
         const raid = new Raid(
             this.client,
             guild,
-            logUrl,
+            logURL,
             logText
                 .split("Raw IDs:")
                 .at(-1)
@@ -119,21 +96,16 @@ export default class BeemoMessageCreate extends EventHandler {
 
         if (!raid.bannedMembers.length)
             return this.client.logger.info(
-                `Not logging the raid on ${guild.name} [${guild.id}] (${logUrl}) as I didn't ban any members.`
+                `Not logging the raid on ${guild.name} [${guild.id}] (${logURL}) as I didn't ban any members.`
             );
 
-        this.client.dataDog.increment("successfulRaids.total", 1, [
-            `guild:${guildId}`,
-            `raiders:${raid.userIds.length}`
-        ]);
-
-        this.client.dataDog.increment(
-            "successfulRaids.banned",
-            raid.bannedMembers.length,
-            [`guild:${guildId}`]
+        this.client.metrics.incrementSuccessfulRaids(
+            guild.id,
+            guild.shardId,
+            raid.bannedMembers.length
         );
 
-        const embed = this.client.functions.generateSuccessMessage({
+        const embed = {
             title: "Beemo Helper",
             description: `**${guild.name}** \`[${guild.id}]\` was raided by ${
                 raid.userIds.length
@@ -141,39 +113,63 @@ export default class BeemoMessageCreate extends EventHandler {
                 raid.userIds.length === 1 ? "" : "s"
             }!\nBeemo Helper banned ${raid.bannedMembers.length} user${
                 raid.bannedMembers.length === 1 ? "" : "s"
-            }!\n\n[**Beemo Log**](${logUrl})\n[**Beemo Helper Log**](${await this.client.functions.uploadHaste(
+            }!\n\n[**Beemo Log**](${logURL})\n[**Beemo Helper Log**](${await this.client.functions.uploadToHastebin(
                 `${raid.userIds.length} user raid detected against ${
                     guild.name
                 } [${guild.id}] by Beemo on ${
                     this.client.logger.timestamp
-                }\nBeemo Log: ${logUrl}\n\nBeemo Helper Banned:\n\n${raid.bannedMembers.join(
+                }\nBeemo Log: ${logURL}\n\nBeemo Helper Banned:\n\n${raid.bannedMembers.join(
                     "\n"
                 )}`
-            )})`
-        });
+            )})`,
+            color: this.client.config.colors.success
+        } as APIEmbed;
 
-        await Promise.all(
-            [actionLogChannel as TextChannel, this.globalActionLog!].map(
-                channel =>
-                    channel.send(embed).catch(error => {
-                        if (error.code === 50013)
-                            this.client.logger.info(
-                                `I don't have enough permissions to log raids in channel ${channel.name} [${channel.id}] in guild ${guild.name} [${guild.id}].`
-                            );
-                        else {
-                            this.client.logger.error(error);
-                            this.client.logger.sentry.captureWithExtras(error, {
-                                event: "Beemo Message Create",
-                                guild: channel.guild,
-                                channel
-                            });
-                        }
-                    })
-            )
+        await this.client.shard?.broadcastEval(
+            async (client, { config, e }) => {
+                const channel = client.channels.cache.get(
+                    config.otherConfig.helperGlobalLogChannelId
+                ) as TextChannel | null;
+
+                if (!channel) return;
+
+                return channel.send({ embeds: [e] }).catch(error => {
+                    if (error.code === 50013)
+                        this.client.logger.info(
+                            `I don't have enough permissions to log raids in channel ${channel.name} [${channel.id}] in guild ${guild.name} [${guild.id}].`
+                        );
+                    else {
+                        this.client.logger.error(error);
+                        this.client.logger.sentry.captureWithExtras(error, {
+                            event: "Beemo Message Create",
+                            guild: channel.guild,
+                            channel
+                        });
+                    }
+                });
+            },
+            { context: { config: this.client.config, e: embed } }
         );
 
+        (actionLogChannel as TextChannel)
+            .send({ embeds: [embed] })
+            .catch(error => {
+                if (error.code === 50013)
+                    this.client.logger.info(
+                        `I don't have enough permissions to log raids in channel ${actionLogChannel.name} [${actionLogChannel.id}] in guild ${guild.name} [${guild.id}].`
+                    );
+                else {
+                    this.client.logger.error(error);
+                    this.client.logger.sentry.captureWithExtras(error, {
+                        event: "Beemo Message Create",
+                        guild: actionLogChannel.guild,
+                        actionLogChannel
+                    });
+                }
+            });
+
         return this.client.logger.info(
-            `I have logged the raid on ${guild.name} [${guild.id}] (${logUrl}) with ${raid.bannedMembers.length} members banned out of ${raid.userIds.length} total members.`
+            `I have logged the raid on ${guild.name} [${guild.id}] (${logURL}) with ${raid.bannedMembers.length} members banned out of ${raid.userIds.length} total members.`
         );
     }
 }

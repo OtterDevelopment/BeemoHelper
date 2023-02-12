@@ -1,35 +1,27 @@
 import { ClientEvents } from "discord.js";
-import BetterClient from "../extensions/BetterClient.js";
+import ExtendedClient from "../extensions/ExtendedClient.js";
 
 export default class EventHandler {
-    /**
-     * The name of our event.
-     */
+    /** The name of our event, this is what we will use to listen to the event. */
     public readonly name: keyof ClientEvents;
 
-    /**
-     * Our client.
-     */
-    public readonly client: BetterClient;
+    /** Our extended client. */
+    public readonly client: ExtendedClient;
 
-    /**
-     * The listener for our event.
-     */
+    /** The listener for our events; */
     private readonly _listener;
 
-    /**
-     * Whether this event should only be emitted once.
-     */
-    private readonly once?: boolean;
+    /** Whether or not this event should only be handled once. */
+    private readonly once: boolean;
 
     /**
-     * Create our event.
-     * @param client Our client.
-     * @param name The name of our client.
-     * @param once Whether this event should only be emitted once.
+     * Create our event handler.
+     * @param client Our extended client.
+     * @param name The name of our event, this is what we will use to listen to the event.
+     * @param once Whether or not this event should only be handled once.
      */
     constructor(
-        client: BetterClient,
+        client: ExtendedClient,
         name: keyof ClientEvents,
         once: boolean = false
     ) {
@@ -40,8 +32,9 @@ export default class EventHandler {
     }
 
     /**
-     * Execute our event.
+     * Handle the execution of this event, with some error handling.
      * @param args The arguments for our event.
+     * @returns The result of our event.
      */
     private async _run(...args: any) {
         try {
@@ -56,13 +49,13 @@ export default class EventHandler {
     }
 
     /**
-     * Execute our event.
+     * Handle the execution of this event.
      * @param _args The arguments for our event.
      */
     public async run(..._args: any): Promise<any> {}
 
     /**
-     * Listen for our event.
+     * Start listening for this event.
      */
     public listen() {
         if (this.once) return this.client.once(this.name, this._listener);
@@ -71,10 +64,9 @@ export default class EventHandler {
     }
 
     /**
-     * Stop listening for our event.
+     * Stop listening for this event.
      */
     public removeListener() {
         return this.client.off(this.name, this._listener);
     }
 }
-
