@@ -83,7 +83,7 @@ manager.on("shardCreate", shard => {
                     );
 
                     guildCount += clientGuildCount;
-                    userCount = clientUserCount;
+                    userCount += clientUserCount;
                 }
 
                 const hasteURL = await Functions.uploadToHastebin(
