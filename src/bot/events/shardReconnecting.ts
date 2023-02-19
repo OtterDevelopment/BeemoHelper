@@ -11,7 +11,7 @@ export default class ShardReconnecting extends EventHandler {
         );
 
         return this.client.logger.webhookLog("console", {
-            content: `Shard ${shardId} is reconnecting to the gateway!`,
+            content: `${this.client.functions.generateTimestamp()} Shard ${shardId} is reconnecting to the gateway!`,
             username: `${this.client.config.botName} | Console Logs`
         });
     }

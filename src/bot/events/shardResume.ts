@@ -12,7 +12,7 @@ export default class ShardResume extends EventHandler {
         );
 
         return this.client.logger.webhookLog("console", {
-            content: `Shard ${shardId} resumed and replayed ${replayedEvents} events!`,
+            content: `${this.client.functions.generateTimestamp()} Shard ${shardId} resumed and replayed ${replayedEvents} events!`,
             username: `${this.client.config.botName} | Console Logs`
         });
     }

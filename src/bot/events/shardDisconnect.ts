@@ -13,7 +13,9 @@ export default class ShardDisconnect extends EventHandler {
         );
 
         return this.client.logger.webhookLog("console", {
-            content: `Shard ${shardId} disconnected from the gateway with code ${event.code} and will not reconnect with reason: ${event.reason}.`,
+            content: `${this.client.functions.generateTimestamp()} Shard ${shardId} disconnected from the gateway with code ${
+                event.code
+            } and will not reconnect with reason: ${event.reason}.`,
             username: `${this.client.config.botName} | Console Logs`
         });
     }
