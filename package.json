@@ -1,5 +1,5 @@
 {
-    "name": "jucc_eats",
+    "name": "beemo_helper",
     "main": "dist/src/index.js",
     "type": "module",
     "scripts": {
@@ -55,3 +55,4 @@
         "typescript": "^4.9.4"
     }
 }
+
