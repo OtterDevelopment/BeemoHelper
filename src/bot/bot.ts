@@ -40,7 +40,8 @@ const client: ExtendedClient = new ExtendedClient({
                 user.id === user.client.user?.id
         },
         MessageManager: { maxSize: 50 }
-    })
+    }),
+    waitGuildTimeout: 5000
 });
 
 client.login().catch(error => {

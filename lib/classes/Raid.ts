@@ -83,9 +83,7 @@ export default class Raid {
         let currentNumber = 0;
         let currentIndex = -1;
 
-        const membersToBan = this.userIds.filter(
-            userId => !members.has(userId)
-        );
+        const membersToBan = this.userIds.filter(userId => members.has(userId));
         if (!membersToBan.length) {
             this.client.metrics.incrementFailedRaids(
                 this.guild.id,
@@ -104,7 +102,7 @@ export default class Raid {
         });
 
         for (const userId of membersToBan) {
-            if (members.has(userId)) {
+            if (!members.has(userId)) {
                 this.client.metrics.incrementFailedBans(
                     this.guild.id,
                     this.guild.shardId,

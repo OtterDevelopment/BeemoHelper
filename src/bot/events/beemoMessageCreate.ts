@@ -1,6 +1,5 @@
 import { APIEmbed, TextChannel } from "discord.js";
 import Raid from "../../../lib/classes/Raid.js";
-import Config from "../../../config/bot.config.js";
 import EventHandler from "../../../lib/classes/EventHandler.js";
 
 export default class BeemoMessageCreate extends EventHandler {
@@ -70,7 +69,7 @@ export default class BeemoMessageCreate extends EventHandler {
                 "MISSING_VIEW_SEND_PERMISSIONS"
             );
 
-            return this.client.logger.debug(
+            return this.client.logger.info(
                 `Skipping raid in ${guild.name} [$${guild.id}] as I don't have the View Channel and or Send Messages permissions in the action log.`
             );
         }
@@ -125,31 +124,32 @@ export default class BeemoMessageCreate extends EventHandler {
             color: this.client.config.colors.success
         } as APIEmbed;
 
-        await this.client.shard?.broadcastEval(
-            async (client, { config, e }) => {
-                const channel = client.channels.cache.get(
-                    config.otherConfig.helperGlobalLogChannelId
-                ) as TextChannel | null;
+        if (this.client.isReady())
+            await this.client.shard?.broadcastEval(
+                async (client, { config, e }) => {
+                    const channel = client.channels.cache.get(
+                        config.otherConfig.helperGlobalLogChannelId
+                    ) as TextChannel | null;
 
-                if (!channel) return;
+                    if (!channel) return;
 
-                return channel.send({ embeds: [e] }).catch(error => {
-                    if (error.code === 50013)
-                        this.client.logger.info(
-                            `I don't have enough permissions to log raids in channel ${channel.name} [${channel.id}] in guild ${guild.name} [${guild.id}].`
-                        );
-                    else {
-                        this.client.logger.error(error);
-                        this.client.logger.sentry.captureWithExtras(error, {
-                            event: "Beemo Message Create",
-                            guild: channel.guild,
-                            channel
-                        });
-                    }
-                });
-            },
-            { context: { config: this.client.config, e: embed } }
-        );
+                    return channel.send({ embeds: [e] }).catch(error => {
+                        if (error.code === 50013)
+                            this.client.logger.info(
+                                `I don't have enough permissions to log raids in channel ${channel.name} [${channel.id}] in guild ${guild.name} [${guild.id}].`
+                            );
+                        else {
+                            this.client.logger.error(error);
+                            this.client.logger.sentry.captureWithExtras(error, {
+                                event: "Beemo Message Create",
+                                guild: channel.guild,
+                                channel
+                            });
+                        }
+                    });
+                },
+                { context: { config: this.client.config, e: embed } }
+            );
 
         (actionLogChannel as TextChannel)
             .send({ embeds: [embed] })

@@ -134,7 +134,12 @@ export default class TextCommandHandler {
             return;
         }
 
-        return this.runTextCommand(textCommand, message, language);
+        return this.runTextCommand(
+            textCommand,
+            message,
+            language,
+            textCommandArguments
+        );
     }
 
     /**
@@ -146,7 +151,8 @@ export default class TextCommandHandler {
     private async runTextCommand(
         textCommand: TextCommand,
         message: Message,
-        language: Language
+        language: Language,
+        args: string[]
     ) {
         if (this.cooldowns.has(message.author.id))
             return message.reply({
@@ -167,7 +173,7 @@ export default class TextCommandHandler {
         this.client.usersUsingBot.add(message.author.id);
 
         textCommand
-            .run(message, language)
+            .run(message, language, args)
             .then(async () => {
                 if (textCommand.cooldown)
                     await textCommand.applyCooldown(message.author.id);

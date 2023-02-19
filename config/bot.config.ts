@@ -7,7 +7,7 @@ import {
 
 export default {
     /** The prefix the bot will use for text commands, the prefix is different depending on the NODE_ENV. */
-    prefixes: process.env.NODE_ENV === "production" ? ["j!"] : ["j!!"],
+    prefixes: process.env.NODE_ENV === "production" ? ["b!"] : ["b!!"],
     /** The name the bot should use across the bot. */
     botName: "Beemo Helper",
 
@@ -67,7 +67,7 @@ export default {
     ] as PermissionResolvable[],
 
     otherConfig: {
-        beemoGlobalLogChannelId: "1000670795019862076",
-        helperGlobalLogChannelId: "1000670785997905982"
+        beemoGlobalLogChannelId: "833694540853936188",
+        helperGlobalLogChannelId: "878542336928415805"
     }
 };

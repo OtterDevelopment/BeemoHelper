@@ -42,6 +42,12 @@ export default class Metrics {
         labelNames: ["shard"]
     });
 
+    private readonly latency = new Gauge({
+        name: "latency",
+        help: "The latency of the bot.",
+        labelNames: ["shard"]
+    });
+
     private readonly websocketEvents = new Gauge({
         name: "websocket_events",
         help: "The number of websocket events the bot has received.",
@@ -166,6 +172,10 @@ export default class Metrics {
         raidersBanned: number
     ) {
         this.successfulRaids.inc({ guildId, shard, raidersBanned });
+    }
+
+    public updateLatency(latency: number, shard: number) {
+        this.latency.set({ shard }, latency);
     }
 }
 

@@ -99,7 +99,7 @@ export class Logger {
     ) {
         if (!type) throw new Error("No webhook type has been provided!");
         else if (!this.webhooks.get(type.toLowerCase())) {
-            const webhookURL = process.env[`${type.toUpperCase}_HOOK`];
+            const webhookURL = process.env[`${type.toUpperCase()}_HOOK`];
             if (!webhookURL)
                 throw new Error(
                     `No webhook URL has been provided for ${type}!`

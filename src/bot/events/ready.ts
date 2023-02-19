@@ -54,6 +54,17 @@ export default class Ready extends EventHandler {
             }and ${userCount} users.`
         );
 
+        await this.client.logger.webhookLog("console", {
+            content: `${this.client.functions.generateTimestamp()} Logged in as ${
+                client.user?.tag
+            } [${client.user?.id}] on Shard ${client.shard?.ids[0]} with ${
+                this.client.guilds.cache.size
+            } guilds ${
+                hasteURL ? `(${hasteURL}) ` : ""
+            }and ${userCount} users.`,
+            username: `${this.client.config.botName} | Console Logs`
+        });
+
         return client.user?.setPresence(this.client.config.presence);
     }
 }

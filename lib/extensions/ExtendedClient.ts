@@ -1,5 +1,6 @@
 import i18next from "i18next";
 import { resolve } from "path";
+import { execSync } from "child_process";
 import { PrismaClient } from "@prisma/client";
 import intervalPlural from "i18next-intervalplural-postprocessor";
 import { Client, ClientOptions, Collection, TextChannel } from "discord.js";
@@ -95,6 +96,11 @@ export default class ExtendedClient extends Client {
     /** The button handler for our extended client/ */
     public buttonHandler: ButtonHandler;
 
+    public cachedStats = {
+        guilds: 0,
+        users: 0
+    };
+
     /**
      * Create our extended client.
      * @param options The options for the client.
@@ -103,6 +109,11 @@ export default class ExtendedClient extends Client {
         super(options);
 
         this.config = Config;
+        this.config.version = execSync("git rev-parse HEAD")
+            .toString()
+            .trim()
+            .slice(0, 7);
+
         this.logger = Logger;
         this.functions = new Functions(this);
 
@@ -215,6 +226,7 @@ export default class ExtendedClient extends Client {
                 const EventFile = await import(
                     `../../src/bot/events/${eventFileName}`
                 );
+
                 // @ts-ignore
                 const event = new EventFile.default(
                     this,
@@ -235,5 +247,32 @@ export default class ExtendedClient extends Client {
         this.events.clear();
 
         return this.loadEvents();
+    }
+
+    /**
+     * Fetch all the stats for our client.
+     */
+    public async fetchStats() {
+        if (this.isReady() === false) return this.cachedStats;
+
+        const stats = await this.shard?.broadcastEval(client => {
+            return {
+                guilds: client.guilds.cache.size,
+                users: client.guilds.cache.reduce(
+                    (previous, guild) => previous + (guild.memberCount ?? 0),
+                    0
+                )
+            };
+        });
+
+        const reducedStats = stats?.reduce((previous, current) => {
+            Object.keys(current).forEach(
+                // @ts-ignore
+                key => (previous[key] += current[key])
+            );
+            return previous;
+        });
+        this.cachedStats = reducedStats || this.cachedStats;
+        return reducedStats || this.cachedStats;
     }
 }

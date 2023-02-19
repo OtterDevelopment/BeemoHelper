@@ -1,16 +1,12 @@
 import { load } from "dotenv-extended";
-import { execSync } from "child_process";
 import { ShardingManager } from "discord.js";
-import Config from "../config/bot.config.js";
 import Logger from "../lib/classes/Logger.js";
 import Functions from "../lib/utilities/functions.js";
-import ExtendedClient from "../lib/extensions/ExtendedClient.js";
+import botConfig from "../config/bot.config.js";
 
 load({
     path: process.env.NODE_ENV === "production" ? ".env.prod" : ".env.dev"
 });
-
-Config.version = execSync("git rev-parse HEAD").toString().trim().slice(0, 7);
 
 const manager = new ShardingManager("./dist/src/bot/bot.js", {
     token: process.env.DISCORD_TOKEN
@@ -56,6 +52,8 @@ manager.on("shardCreate", shard => {
     if (shard.id + 1 === manager.totalShards) {
         shard.once("ready", () => {
             setTimeout(async () => {
+                if (!shard.ready) return;
+
                 const broadcastResult = await shard.manager.broadcastEval(
                     async c => {
                         let userCount = 0;
@@ -101,7 +99,18 @@ manager.on("shardCreate", shard => {
                         hasteURL ? `(${hasteURL}) ` : ""
                     }and ${userCount} users.`
                 );
-            }, 200);
+
+                Logger.webhookLog("console", {
+                    content: `${Functions.generateTimestamp()} Ready on ${
+                        manager.totalShards
+                    } shard${
+                        manager.totalShards === 1 ? "" : "s"
+                    } with ${guildCount} guilds ${
+                        hasteURL ? `(${hasteURL}) ` : ""
+                    }and ${userCount} users.`,
+                    username: `${botConfig.botName} | Console Logs`
+                });
+            }, 5000);
         });
     }
 });

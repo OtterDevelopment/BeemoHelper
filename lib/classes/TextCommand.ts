@@ -4,8 +4,8 @@ import {
     PermissionResolvable,
     PermissionsBitField
 } from "discord.js";
-import ExtendedClient from "../extensions/ExtendedClient.js";
 import Language from "./Language.js";
+import ExtendedClient from "../extensions/ExtendedClient.js";
 
 export default class TextCommand {
     /** Our extended client. */
@@ -229,6 +229,11 @@ export default class TextCommand {
      * Run this text command.
      * @param _message The message to run this command on.
      * @param _language The language to use when replying to the message.
+     * @param _args The arguments to use when running this command.
      */
-    public async run(_message: Message, _language: Language): Promise<any> {}
+    public async run(
+        _message: Message,
+        _language: Language,
+        _args: string[]
+    ): Promise<any> {}
 }

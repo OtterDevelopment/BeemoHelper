@@ -161,6 +161,21 @@ export default class Functions {
     }
 
     /**
+     * Generate a unix timestamp for Discord to be rendered locally per user.
+     * @param options The options to use for the timestamp.
+     * @return The generated timestamp.
+     */
+    public static generateTimestamp(options?: {
+        timestamp?: Date | number;
+        type?: "t" | "T" | "d" | "D" | "f" | "F" | "R";
+    }): string {
+        let timestamp = options?.timestamp || new Date();
+        const type = options?.type || "f";
+        if (timestamp instanceof Date) timestamp = timestamp.getTime();
+        return `<t:${Math.floor(timestamp / 1000)}:${type}>`;
+    }
+
+    /**
      * Upload content to a hastebin server.
      * @param content The content to upload to the hastebin server.
      * @param options The options to use for the upload.
@@ -240,5 +255,29 @@ export default class Functions {
 
             return null;
         }
+    }
+
+    /**
+     * Verify if the input is a function.
+     * @param input The input to verify.
+     * @returns Whether the input is a function or not.
+     */
+    public isFunction(input: any): boolean {
+        return typeof input === "function";
+    }
+
+    /**
+     * Verify if an object is a promise.
+     * @param input The object to verify.
+     * @returns Whether the object is a promise or not.
+     */
+    public isThenable(input: any): boolean {
+        if (!input) return false;
+        return (
+            input instanceof Promise ||
+            (input !== Promise.prototype &&
+                this.isFunction(input.then) &&
+                this.isFunction(input.catch))
+        );
     }
 }
