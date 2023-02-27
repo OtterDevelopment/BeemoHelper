@@ -11,17 +11,7 @@ export default class Ready extends EventHandler {
      * Handle the client being ready.
      */
     public override async run(client: Client) {
-        await Promise.all(
-            (
-                [
-                    this.client.applicationCommandHandler.registerApplicationCommands()
-                ] as any
-            ).concat(
-                (this.client.shard?.ids[0] ?? 0) === 0
-                    ? [this.client.server.start()]
-                    : []
-            )
-        );
+        await this.client.applicationCommandHandler.registerApplicationCommands();
 
         let userCount = 0;
         const guilds = this.client.guilds.cache.map(guild => {
@@ -29,14 +19,17 @@ export default class Ready extends EventHandler {
             return `${guild.name} [${guild.id}] - ${guild.memberCount} members.`;
         });
 
-        this.client.metrics.updateGuildCount(
+        this.client.submitMetricToManager(
+            "guild_count",
+            "set",
             this.client.guilds.cache.size,
-            client.shard?.ids[0] ?? 0
+            {
+                shard: (client.shard?.ids[0] ?? 0).toString()
+            }
         );
-        this.client.metrics.updateUserCount(
-            userCount,
-            client.shard?.ids[0] ?? 0
-        );
+        this.client.submitMetricToManager("user_count", "set", userCount, {
+            shard: (client.shard?.ids[0] ?? 0).toString()
+        });
 
         const hasteURL = await this.client.functions.uploadToHastebin(
             `Currently in ${

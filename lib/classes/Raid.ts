@@ -85,11 +85,11 @@ export default class Raid {
 
         const membersToBan = this.userIds.filter(userId => members.has(userId));
         if (!membersToBan.length) {
-            this.client.metrics.incrementFailedRaids(
-                this.guild.id,
-                this.guild.shardId,
-                "NO_MEMBERS_TO_BAN"
-            );
+            this.client.submitMetricToManager("failed_raids", "inc", 1, {
+                guildId: this.guild.id,
+                shard: this.guild.shardId.toString(),
+                reason: "NO_MEMBERS_TO_BAN"
+            });
 
             return this.client.logger.info(
                 `No members to ban in ${this.guild.name} [${this.guild.id}] (${this.logUrl}).`
@@ -103,11 +103,11 @@ export default class Raid {
 
         for (const userId of membersToBan) {
             if (!members.has(userId)) {
-                this.client.metrics.incrementFailedBans(
-                    this.guild.id,
-                    this.guild.shardId,
-                    "USER_NOT_IN_GUILD"
-                );
+                this.client.submitMetricToManager("failed_raids", "inc", 1, {
+                    guildId: this.guild.id,
+                    shard: this.guild.shardId.toString(),
+                    reason: "USER_NOT_IN_GUILD"
+                });
 
                 this.client.logger.info(
                     `User ${userId} is not in the guild ${this.guild.name} [${this.guild.id}] (${this.logUrl}).`
@@ -140,10 +140,15 @@ export default class Raid {
             } catch (error) {
                 if (error instanceof DiscordAPIError) {
                     if (error.code === 50013) {
-                        this.client.metrics.incrementFailedBans(
-                            this.guild.id,
-                            this.guild.shardId,
-                            "MISSING_PERMISSIONS"
+                        this.client.submitMetricToManager(
+                            "failed_bans",
+                            "inc",
+                            1,
+                            {
+                                guildId: this.guild.id,
+                                shard: this.guild.shardId.toString(),
+                                reason: "MISSING_PERMISSIONS"
+                            }
                         );
 
                         this.client.logger.info(
@@ -154,10 +159,15 @@ export default class Raid {
                             }] (${this.logUrl}).`
                         );
                     } else if (error.code === 30035) {
-                        this.client.metrics.incrementFailedBans(
-                            this.guild.id,
-                            this.guild.shardId,
-                            "MAX_BANS"
+                        this.client.submitMetricToManager(
+                            "failed_bans",
+                            "inc",
+                            1,
+                            {
+                                guildId: this.guild.id,
+                                shard: this.guild.shardId.toString(),
+                                reason: "MAX_BANS"
+                            }
                         );
 
                         return this.client.logger.info(
@@ -170,10 +180,15 @@ export default class Raid {
                             }).`
                         );
                     } else if (error.code === 10013) {
-                        this.client.metrics.incrementFailedBans(
-                            this.guild.id,
-                            this.guild.shardId,
-                            "INVALID_USER"
+                        this.client.submitMetricToManager(
+                            "failed_bans",
+                            "inc",
+                            1,
+                            {
+                                guildId: this.guild.id,
+                                shard: this.guild.shardId.toString(),
+                                reason: "INVALID_USER"
+                            }
                         );
 
                         this.client.logger.info(

@@ -319,24 +319,28 @@ export default class ApplicationCommandHandler {
                     await applicationCommand.applyCooldown(interaction.user.id);
 
                 this.client.usersUsingBot.delete(interaction.user.id);
-                this.client.metrics.incrementCommandUse(
-                    applicationCommand.name,
-                    applicationCommand.type === ApplicationCommandType.ChatInput
-                        ? "slash"
-                        : "context",
-                    true,
-                    this.client.shard?.ids[0] ?? 0
-                );
+                this.client.submitMetricToManager("commands_used", "inc", 1, {
+                    command: applicationCommand.name,
+                    type:
+                        applicationCommand.type ===
+                        ApplicationCommandType.ChatInput
+                            ? "slash"
+                            : "context",
+                    success: "true",
+                    shard: (this.client.shard?.ids[0] ?? 0).toString()
+                });
             })
             .catch(async error => {
-                this.client.metrics.incrementCommandUse(
-                    applicationCommand.name,
-                    applicationCommand.type === ApplicationCommandType.ChatInput
-                        ? "slash"
-                        : "context",
-                    false,
-                    this.client.shard?.ids[0] ?? 0
-                );
+                this.client.submitMetricToManager("commands_used", "inc", 1, {
+                    command: applicationCommand.name,
+                    type:
+                        applicationCommand.type ===
+                        ApplicationCommandType.ChatInput
+                            ? "slash"
+                            : "context",
+                    success: "false",
+                    shard: (this.client.shard?.ids[0] ?? 0).toString()
+                });
                 this.client.logger.error(error);
 
                 const sentryId =

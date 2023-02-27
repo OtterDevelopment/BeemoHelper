@@ -2,12 +2,8 @@ import { register } from "prom-client";
 import { fastify, FastifyInstance } from "fastify";
 import fastifyMetricsPlugin from "fastify-metrics";
 import Logger from "./Logger.js";
-import ExtendedClient from "../extensions/ExtendedClient.js";
 
 export default class Server {
-    /** Our extended client. */
-    public readonly client: ExtendedClient;
-
     /** The port the server should run on. */
     private readonly port: number;
 
@@ -19,8 +15,7 @@ export default class Server {
      * @param client Our extended client.
      * @param port The port hte server should run on.
      */
-    constructor(client: ExtendedClient, port: number) {
-        this.client = client;
+    constructor(port: number) {
         this.port = port;
 
         this.router = fastify({ logger: false, trustProxy: 1 });

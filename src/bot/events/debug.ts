@@ -13,7 +13,9 @@ export default class Debug extends EventHandler {
                 Number(match[0])
             );
 
-            this.client.metrics.updateLatency(latency, shardId);
+            this.client.submitMetricToManager("latency", "set", latency, {
+                shard: shardId.toString()
+            });
         }
 
         if (process.env.NODE_ENV === "development")

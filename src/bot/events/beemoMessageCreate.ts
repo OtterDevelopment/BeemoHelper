@@ -17,11 +17,11 @@ export default class BeemoMessageCreate extends EventHandler {
         if (!guild) return;
 
         if (!guild.members.me?.permissions.has("BanMembers")) {
-            this.client.metrics.incrementFailedRaids(
-                guild.id,
-                guild.shardId,
-                "MISSING_BAN_MEMBERS"
-            );
+            this.client.submitMetricToManager("failed_raids", "inc", 1, {
+                guildId: guild.id,
+                reason: "MISSING_BAN_MEMBERS",
+                shard: guild.shardId.toString()
+            });
 
             return this.client.logger.info(
                 `Skipping raid in ${guild.name} [$${guild.id}] as I don't have the Ban Members permission.`
@@ -32,11 +32,11 @@ export default class BeemoMessageCreate extends EventHandler {
             where: { guildId: guild.id }
         });
         if (!actionLog) {
-            this.client.metrics.incrementFailedRaids(
-                guild.id,
-                guild.shardId,
-                "NO_ACTION_LOG"
-            );
+            this.client.submitMetricToManager("failed_raids", "inc", 1, {
+                guildId: guild.id,
+                reason: "NO_ACTION_LOG",
+                shard: guild.shardId.toString()
+            });
 
             return this.client.logger.info(
                 `Skipping raid in ${guild.name} [$${guild.id}] as there is no action log set up.`
@@ -45,11 +45,11 @@ export default class BeemoMessageCreate extends EventHandler {
 
         const actionLogChannel = guild.channels.cache.get(actionLog.channelId);
         if (!actionLogChannel) {
-            this.client.metrics.incrementFailedRaids(
-                guild.id,
-                guild.shardId,
-                "NO_ACTION_LOG"
-            );
+            this.client.submitMetricToManager("failed_raids", "inc", 1, {
+                guildId: guild.id,
+                reason: "NO_ACTION_LOG",
+                shard: guild.shardId.toString()
+            });
 
             this.client.logger.info(
                 `Skipping raid in ${guild.name} [$${guild.id}] as the action log no longer exists.`
@@ -63,11 +63,11 @@ export default class BeemoMessageCreate extends EventHandler {
                 .permissionsFor(guild.members.me)
                 .has(["ViewChannel", "SendMessages"])
         ) {
-            this.client.metrics.incrementFailedRaids(
-                guild.id,
-                guild.shardId,
-                "MISSING_VIEW_SEND_PERMISSIONS"
-            );
+            this.client.submitMetricToManager("failed_raids", "inc", 1, {
+                guildId: guild.id,
+                reason: "MISSING_VIEW_SEND_PERMISSIONS",
+                shard: guild.shardId.toString()
+            });
 
             return this.client.logger.info(
                 `Skipping raid in ${guild.name} [$${guild.id}] as I don't have the View Channel and or Send Messages permissions in the action log.`
@@ -98,11 +98,11 @@ export default class BeemoMessageCreate extends EventHandler {
                 `Not logging the raid on ${guild.name} [${guild.id}] (${logURL}) as I didn't ban any members.`
             );
 
-        this.client.metrics.incrementSuccessfulRaids(
-            guild.id,
-            guild.shardId,
-            raid.bannedMembers.length
-        );
+        this.client.submitMetricToManager("successful_raids", "inc", 1, {
+            guildId: guild.id,
+            raidersBanned: raid.bannedMembers.length.toString(),
+            shard: guild.shardId.toString()
+        });
 
         const embed = {
             title: "Beemo Helper",

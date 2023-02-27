@@ -6,14 +6,13 @@ import intervalPlural from "i18next-intervalplural-postprocessor";
 import { Client, ClientOptions, Collection, TextChannel } from "discord.js";
 import Logger from "../classes/Logger.js";
 import Button from "../classes/Button.js";
-import Server from "../classes/Server.js";
-import Metrics from "../classes/Metrics.js";
 import Config from "../../config/bot.config.js";
 import Functions from "../utilities/functions.js";
 import TextCommand from "../classes/TextCommand.js";
 import EventHandler from "../classes/EventHandler.js";
 import AutoComplete from "../classes/AutoComplete.js";
 import ButtonHandler from "../classes/ButtonHandler.js";
+import metrics from "../classes/Metrics.js";
 import LanguageHandler from "../classes/LanguageHandler.js";
 import ApplicationCommand from "../classes/ApplicationCommand.js";
 import TextCommandHandler from "../classes/TextCommandHandler.js";
@@ -51,12 +50,6 @@ export default class ExtendedClient extends Client {
 
     /** The i18n instance for our bot. */
     public readonly i18n: typeof i18next;
-
-    /** Our Fastify server. */
-    public server: Server;
-
-    /** Our Metrics system. */
-    public readonly metrics: Metrics;
 
     /** __dirname is not in our version of ECMA, this is a workaround. */
     public readonly __dirname: string;
@@ -184,10 +177,6 @@ export default class ExtendedClient extends Client {
             lng: "en-US"
         });
 
-        this.server = new Server(this, parseInt(process.env.FASTIFY_PORT, 10));
-
-        this.metrics = new Metrics(this);
-
         this.__dirname = resolve();
 
         this.usersUsingBot = new Set();
@@ -253,7 +242,7 @@ export default class ExtendedClient extends Client {
      * Fetch all the stats for our client.
      */
     public async fetchStats() {
-        if (this.isReady() === false) return this.cachedStats;
+        if (!this.isReady()) return this.cachedStats;
 
         const stats = await this.shard?.broadcastEval(client => {
             return {
@@ -274,5 +263,28 @@ export default class ExtendedClient extends Client {
         });
         this.cachedStats = reducedStats || this.cachedStats;
         return reducedStats || this.cachedStats;
+    }
+
+    /**
+     * Submit metrics to the shard manager.
+     * @param key The key of the metric to submit.
+     * @param value The value of the metric to submit.
+     * @param labels The labels of the metric to submit.
+     */
+    public async submitMetricToManager<Key extends keyof typeof metrics>(
+        key: Key,
+        method: "set" | "inc",
+        value: number,
+        labels?: Partial<
+            Record<typeof metrics[Key]["labelNames"][number], string>
+        >
+    ) {
+        return this.shard?.send({
+            type: "metric",
+            method,
+            key,
+            value,
+            labels
+        });
     }
 }

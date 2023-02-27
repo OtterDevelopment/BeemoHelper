@@ -11,8 +11,20 @@ export default class GuildDelete extends EventHandler {
 
         const stats = await this.client.fetchStats();
 
-        this.client.metrics.updateGuildCount(stats.guilds);
-        this.client.metrics.updateUserCount(stats.users);
+        let userCount = 0;
+        this.client.guilds.cache.forEach(g => (userCount += g.memberCount));
+
+        this.client.submitMetricToManager(
+            "guild_count",
+            "set",
+            this.client.guilds.cache.size,
+            {
+                shard: (this.client.shard?.ids[0] ?? 0).toString()
+            }
+        );
+        this.client.submitMetricToManager("user_count", "set", userCount, {
+            shard: (this.client.shard?.ids[0] ?? 0).toString()
+        });
 
         this.client.logger.info(
             `Left guild ${guild.name} (${guild.id}) with ${guild.memberCount} members, now in ${stats.guilds} guilds(s)!`

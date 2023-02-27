@@ -7,20 +7,20 @@ export default class InteractionCreate extends EventHandler {
      * @param interaction The interaction that was created.
      */
     public override async run(interaction: Interaction) {
-        this.client.metrics.incrementInteractionCreate(
+        this.client.submitMetricToManager("interactions_created", "inc", 1, {
             // eslint-disable-next-line no-nested-ternary
-            interaction.isMessageComponent()
+            name: interaction.isMessageComponent()
                 ? interaction.customId
                 : interaction.isCommand()
                 ? interaction.commandName
                 : "unknown",
-            interaction.type,
-            this.client.shard?.ids[0] ?? 0
-        );
-        this.client.metrics.incrementUserLocale(
-            interaction.locale,
-            this.client.shard?.ids[0] ?? 0
-        );
+            type: interaction.type.toString(),
+            shard: (this.client.shard?.ids[0] ?? 0).toString()
+        });
+        this.client.submitMetricToManager("user_locales", "inc", 1, {
+            locale: interaction.locale,
+            shard: (this.client.shard?.ids[0] ?? 0).toString()
+        });
 
         if (interaction.isCommand() || interaction.isContextMenuCommand())
             return this.client.applicationCommandHandler.handleApplicationCommand(

@@ -179,21 +179,20 @@ export default class TextCommandHandler {
                     await textCommand.applyCooldown(message.author.id);
 
                 this.client.usersUsingBot.delete(message.author.id);
-                // TODO: Implement Grafana or Datadog and add metrics here.
-                this.client.metrics.incrementCommandUse(
-                    textCommand.name,
-                    "text",
-                    true,
-                    this.client.shard?.ids[0] ?? 0
-                );
+                this.client.submitMetricToManager("commands_used", "inc", 1, {
+                    command: textCommand.name,
+                    type: "text",
+                    shard: (this.client.shard?.ids[0] ?? 0).toString(),
+                    success: "true"
+                });
             })
             .catch(async error => {
-                this.client.metrics.incrementCommandUse(
-                    textCommand.name,
-                    "text",
-                    false,
-                    this.client.shard?.ids[0] ?? 0
-                );
+                this.client.submitMetricToManager("commands_used", "inc", 1, {
+                    command: textCommand.name,
+                    type: "text",
+                    shard: (this.client.shard?.ids[0] ?? 0).toString(),
+                    success: "true"
+                });
                 this.client.logger.error(error);
 
                 const sentryId =

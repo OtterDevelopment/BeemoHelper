@@ -6,10 +6,10 @@ export default class Raw extends EventHandler {
      * Handle a gateway dispatch event.
      */
     public override async run(event: GatewayDispatchPayload) {
-        this.client.metrics.incrementWebsocketEvent(
-            event.t,
-            this.client.shard?.ids[0] ?? 0
-        );
+        this.client.submitMetricToManager("websocket_events", "inc", 1, {
+            shard: (this.client.shard?.ids[0] ?? 0).toString(),
+            type: event.t
+        });
     }
 }
 

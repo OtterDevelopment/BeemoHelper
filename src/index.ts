@@ -1,8 +1,11 @@
+import { Gauge } from "prom-client";
 import { load } from "dotenv-extended";
 import { ShardingManager } from "discord.js";
+import Server from "../lib/classes/Server.js";
 import Logger from "../lib/classes/Logger.js";
-import Functions from "../lib/utilities/functions.js";
 import botConfig from "../config/bot.config.js";
+import metrics from "../lib/classes/Metrics.js";
+import Functions from "../lib/utilities/functions.js";
 
 load({
     path: process.env.NODE_ENV === "production" ? ".env.prod" : ".env.dev"
@@ -12,40 +15,82 @@ const manager = new ShardingManager("./dist/src/bot/bot.js", {
     token: process.env.DISCORD_TOKEN
 });
 
-manager
-    .spawn({
-        timeout: -1
-    })
-    .then(shards => {
-        shards.forEach(shard => {
-            shard.on("message", message => {
-                if ("_eval" in message && "_result" in message)
-                    Logger.info(
-                        `Shard[${shard.id}]: ${message._eval} : ${message._result}`
-                    );
+interface ShardMetricMessage<Key extends keyof typeof metrics> {
+    type: "metric";
+    method: "set" | "inc";
+    key: Key;
+    value: number;
+    labels: Partial<Record<typeof metrics[Key]["labelNames"][number], string>>;
+}
 
-                if ("type" in message) {
-                    Logger.info(`Shard[${shard.id}]:`, message);
-                    if (message.type === "raid") {
-                        const shardId =
-                            (message.guildId >> 22) % shard.manager.shards.size;
+const server = new Server(parseInt(process.env.FASTIFY_PORT, 10));
+const gauges = new Map<keyof typeof metrics, Gauge>();
 
-                        manager.shards
-                            .get(shardId)
-                            ?.eval(
-                                (client, { m }) =>
-                                    client.emit("beemoMessageCreate", m),
-                                { m: message }
-                            );
+Object.entries(metrics).forEach(([key, gauge]) => {
+    gauges.set(
+        key as keyof typeof metrics,
+        new Gauge({
+            name: key,
+            ...gauge
+        })
+    );
+});
+
+server.start().then(() =>
+    manager
+        .spawn({
+            timeout: -1
+        })
+        .then(async shards => {
+            shards.forEach(shard => {
+                shard.on("message", message => {
+                    if ("_eval" in message && "_result" in message)
+                        Logger.info(
+                            `Shard[${shard.id}]: ${message._eval} : ${message._result}`
+                        );
+
+                    if ("type" in message) {
+                        if (message.type === "raid") {
+                            const shardId =
+                                (message.guildId >> 22) %
+                                shard.manager.shards.size;
+
+                            manager.shards
+                                .get(shardId)
+                                ?.eval(
+                                    (client, { m }) =>
+                                        client.emit("beemoMessageCreate", m),
+                                    { m: message }
+                                );
+                        } else if (message.type === "metric") {
+                            const typedMessage = message as ShardMetricMessage<
+                                keyof typeof metrics
+                            >;
+
+                            const gauge = gauges.get(typedMessage.key);
+
+                            if (gauge) {
+                                if (typedMessage.method === "set")
+                                    gauge.set(
+                                        typedMessage.labels,
+                                        typedMessage.value
+                                    );
+                                else if (typedMessage.method === "inc")
+                                    gauge.inc(
+                                        typedMessage.labels,
+                                        typedMessage.value
+                                    );
+                            }
+                        }
                     }
-                }
+                });
             });
-        });
-    })
-    .catch(error => {
-        Logger.error(error);
-        Logger.sentry.captureException(error);
-    });
+        })
+        .catch(error => {
+            Logger.error(error);
+            Logger.sentry.captureException(error);
+        })
+);
 
 manager.on("shardCreate", shard => {
     Logger.info(`Staring shard ${shard.id}.`);
