@@ -61,4 +61,3 @@ export default class Ready extends EventHandler {
         return client.user?.setPresence(this.client.config.presence);
     }
 }
-

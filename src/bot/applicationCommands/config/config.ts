@@ -122,4 +122,3 @@ export default class Config extends ApplicationCommand {
         }
     }
 }
-

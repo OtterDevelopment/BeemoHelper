@@ -22,4 +22,3 @@ export default class Debug extends EventHandler {
             this.client.logger.debug(info);
     }
 }
-

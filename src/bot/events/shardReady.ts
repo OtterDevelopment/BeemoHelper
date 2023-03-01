@@ -22,4 +22,3 @@ export default class ShardReady extends EventHandler {
         });
     }
 }
-

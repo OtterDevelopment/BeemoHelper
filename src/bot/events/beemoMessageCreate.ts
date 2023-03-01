@@ -173,4 +173,3 @@ export default class BeemoMessageCreate extends EventHandler {
         );
     }
 }
-

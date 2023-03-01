@@ -138,4 +138,3 @@ export default class Eval extends TextCommand {
         return asyncTime ? `⏱ ${asyncTime}<${syncTime}>` : `⏱ ${syncTime}`;
     }
 }
-

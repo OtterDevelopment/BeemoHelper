@@ -4,8 +4,8 @@ import {
     ButtonStyle,
     CommandInteraction
 } from "discord.js";
-import ExtendedClient from "../../../../lib/extensions/ExtendedClient.js";
 import ApplicationCommand from "../../../../lib/classes/ApplicationCommand.js";
+import ExtendedClient from "../../../../lib/extensions/ExtendedClient.js";
 
 export default class Help extends ApplicationCommand {
     /**
@@ -71,4 +71,3 @@ export default class Help extends ApplicationCommand {
         });
     }
 }
-

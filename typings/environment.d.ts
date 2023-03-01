@@ -19,4 +19,3 @@ declare global {
 }
 
 export {};
-

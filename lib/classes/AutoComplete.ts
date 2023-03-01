@@ -29,4 +29,3 @@ export default class AutoComplete {
         _language: Language
     ): Promise<any> {}
 }
-

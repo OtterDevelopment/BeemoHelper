@@ -20,4 +20,3 @@ export default class ShardDisconnect extends EventHandler {
         });
     }
 }
-

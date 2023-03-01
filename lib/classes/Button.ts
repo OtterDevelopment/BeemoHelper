@@ -169,4 +169,3 @@ export default class Button {
         _language: Language
     ): Promise<any> {}
 }
-
