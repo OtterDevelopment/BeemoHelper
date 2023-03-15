@@ -147,7 +147,14 @@ export default class TextCommand {
                         : "MISSING_PERMISSIONS_USER_PERMISSIONS_OTHER",
                     {
                         type: "text command",
-                        missingPermissions
+                        missingPermissions: missingPermissions
+                            .map(
+                                missingPermission =>
+                                    `**${language.get(
+                                        missingPermission as any
+                                    )}**`
+                            )
+                            .join(", ")
                     }
                 )
             };
@@ -175,7 +182,14 @@ export default class TextCommand {
                         : "MISSING_PERMISSIONS_CLIENT_PERMISSIONS_OTHER",
                     {
                         type: "text command",
-                        missingPermissions
+                        missingPermissions: missingPermissions
+                            .map(
+                                missingPermission =>
+                                    `**${language.get(
+                                        missingPermission as any
+                                    )}**`
+                            )
+                            .join(", ")
                     }
                 )
             };
