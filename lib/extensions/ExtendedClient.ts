@@ -3,23 +3,27 @@ import { resolve } from "path";
 import { execSync } from "child_process";
 import { PrismaClient } from "@prisma/client";
 import intervalPlural from "i18next-intervalplural-postprocessor";
-import { Client, ClientOptions, Collection, TextChannel } from "discord.js";
+import {
+    API,
+    APIGuild,
+    Client,
+    ClientOptions,
+    MappedEvents
+} from "@discordjs/core";
+import { Gauge } from "prom-client";
 import Logger from "../classes/Logger.js";
-import Button from "../classes/Button.js";
+import metrics from "../classes/Metrics.js";
 import Config from "../../config/bot.config.js";
 import Functions from "../utilities/functions.js";
-import TextCommand from "../classes/TextCommand.js";
 import EventHandler from "../classes/EventHandler.js";
-import AutoComplete from "../classes/AutoComplete.js";
-import ButtonHandler from "../classes/ButtonHandler.js";
-import metrics from "../classes/Metrics.js";
 import LanguageHandler from "../classes/LanguageHandler.js";
 import ApplicationCommand from "../classes/ApplicationCommand.js";
-import TextCommandHandler from "../classes/TextCommandHandler.js";
-import AutoCompleteHandler from "../classes/AutoCompleteHandler.js";
 import ApplicationCommandHandler from "../classes/ApplicationCommandHandler.js";
 
 export default class ExtendedClient extends Client {
+    /** An API instance to make using Discord's API much easier. */
+    public readonly api: API;
+
     /** The configuration for our bot. */
     public readonly config: typeof Config;
 
@@ -29,7 +33,13 @@ export default class ExtendedClient extends Client {
     /** The functions for our bot. */
     public readonly functions: Functions;
 
-    /** Our Prisma client, this is an ORM. */
+    /** The i18n instance for our bot. */
+    public readonly i18n: typeof i18next;
+
+    /** __dirname is not in our version of ECMA, this is a workaround. */
+    public readonly __dirname: string;
+
+    /** Our Prisma client, this is an ORM to interact with our PostgreSQL instance. */
     public readonly prisma: PrismaClient<{
         errorFormat: "pretty";
         log: (
@@ -48,58 +58,28 @@ export default class ExtendedClient extends Client {
         )[];
     }>;
 
-    /** The i18n instance for our bot. */
-    public readonly i18n: typeof i18next;
+    /** All of the different gauges we use for Metrics with Prometheus and Grafana. */
+    private gauges: Map<keyof typeof metrics, Gauge>;
 
-    /** __dirname is not in our version of ECMA, this is a workaround. */
-    public readonly __dirname: string;
-
-    /** A set of users that are currently using the bot, whether this be through a slash command, button, etc. */
-    public usersUsingBot: Set<string>;
-
-    /** The global log channel for our bot, this will start off as undefined and then eventually be replaced. */
-    public helperGlobalChannel: TextChannel | null;
+    /** A map of guild ID to user ID, representing a guild and who owns it. */
+    public guildOwnersCache: Map<string, string>;
 
     /** The language handler for our bot. */
     public readonly languageHandler: LanguageHandler;
 
-    public events: Map<string, EventHandler>;
+    /** A map of events that our client is listening to. */
+    public events: Map<keyof MappedEvents, EventHandler>;
 
-    /** A collection of application commands the bot has registered. */
-    public applicationCommands: Collection<string, ApplicationCommand>;
+    /** A map of the application commands that the bot is currently handling. */
+    public applicationCommands: Map<string, ApplicationCommand>;
 
-    /** The application command handler for our extended client. */
+    /** The application command handler for our bot. */
     public readonly applicationCommandHandler: ApplicationCommandHandler;
 
-    /** A collection of text commands the bot has registered. */
-    public textCommands: Collection<string, TextCommand>;
+    constructor({ rest, ws }: ClientOptions) {
+        super({ rest, ws });
 
-    /** The text command handler for our extended client. */
-    public readonly textCommandHandler: TextCommandHandler;
-
-    /** A collection of auto completes the bot has registered. */
-    public autoCompletes: Collection<string[], AutoComplete>;
-
-    /** The auto complete handler for our extended client/ */
-    public autoCompleteHandler: AutoCompleteHandler;
-
-    /** A collection of buttons the bot has registered. */
-    public buttons: Collection<string, Button>;
-
-    /** The button handler for our extended client/ */
-    public buttonHandler: ButtonHandler;
-
-    public cachedStats = {
-        guilds: 0,
-        users: 0
-    };
-
-    /**
-     * Create our extended client.
-     * @param options The options for the client.
-     */
-    constructor(options: ClientOptions) {
-        super(options);
+        this.api = new API(rest);
 
         this.config = Config;
         this.config.version = execSync("git rev-parse HEAD")
@@ -113,28 +93,45 @@ export default class ExtendedClient extends Client {
         this.prisma = new PrismaClient({
             errorFormat: "pretty",
             log: [
-                { emit: "stdout", level: "warn" },
-                { emit: "stdout", level: "error" },
-                { emit: "event", level: "query" }
+                {
+                    level: "warn",
+                    emit: "stdout"
+                },
+                {
+                    level: "error",
+                    emit: "stdout"
+                },
+                { level: "query", emit: "event" }
             ]
         });
 
+        this.gauges = new Map<keyof typeof metrics, Gauge>();
+
+        Object.entries(metrics).forEach(([key, gauge]) => {
+            this.gauges.set(
+                key as keyof typeof metrics,
+                new Gauge({
+                    name: key,
+                    ...gauge
+                })
+            );
+        });
+
+        this.guildOwnersCache = new Map();
+
+        // I forget what this is even used for, but Vlad from https://github.com/vladfrangu/highlight uses it and recommended me to use it a while ago.
         if (process.env.NODE_ENV === "development") {
             this.prisma.$on("query", event => {
                 try {
-                    const paramsArray = JSON.parse(event.params) as unknown[];
-                    const newQuery = event.query.replace(
+                    const paramsArray = JSON.parse(event.params);
+                    const newQuery = event.query.replaceAll(
                         /\$(\d+)/g,
                         (_, number) => {
                             const value = paramsArray[Number(number) - 1];
 
-                            if (typeof value === "string") {
-                                return `"${value}"`;
-                            }
-
-                            if (Array.isArray(value)) {
+                            if (typeof value === "string") return `"${value}"`;
+                            else if (Array.isArray(value))
                                 return `'${JSON.stringify(value)}'`;
-                            }
 
                             return String(value);
                         }
@@ -153,9 +150,7 @@ export default class ExtendedClient extends Client {
 
             this.prisma.$use(async (params, next) => {
                 const before = Date.now();
-
                 const result = await next(params);
-
                 const after = Date.now();
 
                 this.logger.debug(
@@ -179,30 +174,15 @@ export default class ExtendedClient extends Client {
 
         this.__dirname = resolve();
 
-        this.usersUsingBot = new Set();
-        this.helperGlobalChannel = null;
-
         this.languageHandler = new LanguageHandler(this);
         this.languageHandler.loadLanguages();
 
-        this.events = new Map();
-        this.loadEvents();
-
-        this.applicationCommands = new Collection();
+        this.applicationCommands = new Map();
         this.applicationCommandHandler = new ApplicationCommandHandler(this);
         this.applicationCommandHandler.loadApplicationCommands();
 
-        this.textCommands = new Collection();
-        this.textCommandHandler = new TextCommandHandler(this);
-        this.textCommandHandler.loadTextCommands();
-
-        this.autoCompletes = new Collection();
-        this.autoCompleteHandler = new AutoCompleteHandler(this);
-        this.autoCompleteHandler.loadAutoCompletes();
-
-        this.buttons = new Collection();
-        this.buttonHandler = new ButtonHandler(this);
-        this.buttonHandler.loadButtons();
+        this.events = new Map();
+        this.loadEvents();
     }
 
     /**
@@ -217,10 +197,7 @@ export default class ExtendedClient extends Client {
                 );
 
                 // @ts-ignore
-                const event = new EventFile.default(
-                    this,
-                    eventFileName.split(".js")[0]
-                ) as EventHandler;
+                const event = new EventFile.default(this) as EventHandler;
 
                 event.listen();
 
@@ -229,62 +206,21 @@ export default class ExtendedClient extends Client {
     }
 
     /**
-     * Reload all the events in the events directory.
+     * Submit a metric to prometheus.
+     * @param key The key of the metric to submit to.
+     * @param method The method to use to submit the metric.
+     * @param value The value to submit to the metric.
+     * @param labels The labels to submit to the metric.
      */
-    public reloadEvents() {
-        this.events.forEach(event => event.removeListener());
-        this.events.clear();
-
-        return this.loadEvents();
-    }
-
-    /**
-     * Fetch all the stats for our client.
-     */
-    public async fetchStats() {
-        if (!this.isReady()) return this.cachedStats;
-
-        const stats = await this.shard?.broadcastEval(client => {
-            return {
-                guilds: client.guilds.cache.size,
-                users: client.guilds.cache.reduce(
-                    (previous, guild) => previous + (guild.memberCount ?? 0),
-                    0
-                )
-            };
-        });
-
-        const reducedStats = stats?.reduce((previous, current) => {
-            Object.keys(current).forEach(
-                // @ts-ignore
-                key => (previous[key] += current[key])
-            );
-            return previous;
-        });
-        this.cachedStats = reducedStats || this.cachedStats;
-        return reducedStats || this.cachedStats;
-    }
-
-    /**
-     * Submit metrics to the shard manager.
-     * @param key The key of the metric to submit.
-     * @param value The value of the metric to submit.
-     * @param labels The labels of the metric to submit.
-     */
-    public async submitMetricToManager<Key extends keyof typeof metrics>(
-        key: Key,
+    public submitMetric<K extends keyof typeof metrics>(
+        key: K,
         method: "set" | "inc",
         value: number,
-        labels?: Partial<
-            Record<typeof metrics[Key]["labelNames"][number], string>
-        >
+        labels: Partial<Record<typeof metrics[K]["labelNames"][number], string>>
     ) {
-        return this.shard?.send({
-            type: "metric",
-            method,
-            key,
-            value,
-            labels
-        });
+        const gauge = this.gauges.get(key);
+        if (!gauge) return;
+
+        return gauge[method](labels, value);
     }
 }

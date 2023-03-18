@@ -1,13 +1,16 @@
 import {
+    APIApplicationCommandInteraction,
     APIEmbed,
-    ApplicationCommandData,
+    ApplicationCommandOptionType,
     ApplicationCommandType,
-    CommandInteraction,
-    PermissionResolvable,
-    PermissionsBitField
-} from "discord.js";
+    Permissions,
+    RESTJSONErrorCodes,
+    RESTPostAPIApplicationCommandsJSONBody
+} from "@discordjs/core";
+import { DiscordAPIError } from "@discordjs/rest";
 import Language from "./Language.js";
 import ExtendedClient from "../extensions/ExtendedClient.js";
+import PermissionsBitField from "../utilities/permissions.js";
 
 export default class ApplicationCommand {
     /** Our extended client. */
@@ -20,13 +23,13 @@ export default class ApplicationCommand {
     public readonly type: ApplicationCommandType;
 
     /** The options for this application command. */
-    public readonly options: ApplicationCommandData;
+    public readonly options: RESTPostAPIApplicationCommandsJSONBody;
 
     /** The permissions the user requires to run this application command. */
-    private readonly permissions: PermissionsBitField;
+    private readonly permissions?: Permissions;
 
     /** The permissions the client requires to run this application command. */
-    private readonly clientPermissions: PermissionsBitField;
+    private readonly clientPermissions: Permissions;
 
     /** Whether or not this application command can only be used by developers. */
     private readonly devOnly: boolean;
@@ -48,9 +51,9 @@ export default class ApplicationCommand {
     constructor(
         client: ExtendedClient,
         options: {
-            options: ApplicationCommandData;
-            permissions?: PermissionResolvable[];
-            clientPermissions?: PermissionResolvable[];
+            options: RESTPostAPIApplicationCommandsJSONBody;
+            permissions?: Permissions;
+            clientPermissions?: Permissions;
             devOnly?: boolean;
             ownerOnly?: boolean;
             cooldown?: number;
@@ -63,14 +66,9 @@ export default class ApplicationCommand {
         this.options = options.options;
         this.name = options.options.name;
 
-        this.permissions = new PermissionsBitField(
-            options.options.defaultMemberPermissions || []
-        );
-        this.clientPermissions = new PermissionsBitField(
-            client.config.requiredPermissions.concat(
-                options.clientPermissions || []
-            )
-        );
+        this.permissions = options.options
+            .default_member_permissions as Permissions;
+        this.clientPermissions = options.clientPermissions as Permissions;
 
         this.devOnly = options.devOnly || false;
         this.ownerOnly = options.ownerOnly || false;
@@ -123,55 +121,117 @@ export default class ApplicationCommand {
      * @param language The language to use when replying to the interaction.
      * @returns An APIEmbed if the interaction is invalid, null if the interaction is valid.
      */
-    public async validate(
-        interaction: CommandInteraction,
-        language: Language
-    ): Promise<APIEmbed | null> {
+    public async validate({
+        interaction,
+        language
+    }: {
+        interaction: APIApplicationCommandInteraction;
+        shardId: number;
+        language: Language;
+    }): Promise<APIEmbed | null> {
         const type =
             this.type === ApplicationCommandType.ChatInput
                 ? "slash command"
                 : "context menu";
 
-        if (
-            this.ownerOnly &&
-            interaction.guild?.ownerId !== interaction.user.id
-        )
-            return {
-                title: language.get("MISSING_PERMISSIONS_BASE_TITLE"),
-                description: language.get("MISSING_PERMISSIONS_OWNER_ONLY", {
-                    type
-                })
-            };
-        else if (
+        if (this.ownerOnly && interaction.guild_id) {
+            if (!this.client.guildOwnersCache.has(interaction.guild_id)) {
+                try {
+                    const guild = await this.client.api.guilds.get(
+                        interaction.guild_id
+                    );
+
+                    this.client.guildOwnersCache.set(
+                        interaction.guild_id,
+                        guild.owner_id
+                    );
+                } catch (error) {
+                    if (
+                        error instanceof DiscordAPIError &&
+                        error.code === RESTJSONErrorCodes.UnknownUser
+                    ) {
+                        const eventId =
+                            await this.client.logger.sentry.captureWithInteraction(
+                                error,
+                                interaction
+                            );
+
+                        return {
+                            title: language.get("INTERNAL_ERROR_TITLE"),
+                            description: language.get(
+                                "INTERNAL_ERROR_DESCRIPTION"
+                            ),
+                            footer: {
+                                text: language.get("SENTRY_EVENT_ID_FOOTER", {
+                                    eventId
+                                })
+                            }
+                        };
+                    }
+
+                    await this.client.logger.sentry.captureWithInteraction(
+                        error,
+                        interaction
+                    );
+                    throw error;
+                }
+            }
+
+            const guildOwnerId = this.client.guildOwnersCache.get(
+                interaction.guild_id
+            );
+
+            if (
+                guildOwnerId !==
+                (interaction.member?.user ?? interaction.user!).id
+            )
+                return {
+                    title: language.get("MISSING_PERMISSIONS_BASE_TITLE"),
+                    description: language.get(
+                        "MISSING_PERMISSIONS_OWNER_ONLY_DESCRIPTION",
+                        {
+                            type
+                        }
+                    )
+                };
+        } else if (
             this.devOnly &&
-            !this.client.config.admins.includes(interaction.user.id)
+            !this.client.config.admins.includes(
+                (interaction.member?.user ?? interaction.user!).id || ""
+            )
         )
             return {
                 title: language.get("MISSING_PERMISSIONS_BASE_TITLE"),
                 description: language.get(
-                    "MISSING_PERMISSIONS_DEVELOPER_ONLY",
+                    "MISSING_PERMISSIONS_DEVELOPER_ONLY_DESCRIPTION",
                     {
                         type
                     }
                 )
             };
         else if (
-            interaction.inGuild() &&
-            this.permissions?.toArray().length &&
-            !interaction.memberPermissions.has(this.permissions)
+            interaction.guild_id &&
+            this.permissions &&
+            !PermissionsBitField.has(
+                BigInt(interaction.member?.permissions ?? 0),
+                BigInt(this.permissions)
+            )
         ) {
-            const missingPermissions = this.permissions
-                .toArray()
-                .filter(
-                    permission => !interaction.memberPermissions.has(permission)
-                );
+            const missingPermissions = PermissionsBitField.toArray(
+                PermissionsBitField.difference(
+                    BigInt(this.permissions),
+                    BigInt(interaction.member?.permissions ?? 0)
+                )
+            )
+                .map(permission => `**${language.get(permission)}**`)
+                .join(", ");
 
             return {
                 title: language.get("MISSING_PERMISSIONS_BASE_TITLE"),
                 description: language.get(
                     missingPermissions.length === 1
-                        ? "MISSING_PERMISSIONS_USER_PERMISSIONS_ONE"
-                        : "MISSING_PERMISSIONS_USER_PERMISSIONS_OTHER",
+                        ? "MISSING_PERMISSIONS_USER_PERMISSIONS_ONE_DESCRIPTION"
+                        : "MISSING_PERMISSIONS_USER_PERMISSIONS_OTHER_DESCRIPTION",
                     {
                         type,
                         missingPermissions
@@ -179,27 +239,28 @@ export default class ApplicationCommand {
                 )
             };
         } else if (
-            interaction.inGuild() &&
-            this.clientPermissions.toArray().length &&
-            interaction.guild!.members.me?.permissions.has(
-                this.clientPermissions
-            ) === false
+            interaction.guild_id &&
+            this.clientPermissions &&
+            !PermissionsBitField.has(
+                BigInt(interaction.app_permissions ?? 0),
+                BigInt(this.clientPermissions)
+            )
         ) {
-            const missingPermissions = this.clientPermissions
-                .toArray()
-                .filter(
-                    permission =>
-                        interaction.guild!.members.me?.permissions.has(
-                            permission
-                        ) === false
-                );
+            const missingPermissions = PermissionsBitField.toArray(
+                PermissionsBitField.difference(
+                    BigInt(this.clientPermissions),
+                    BigInt(interaction.app_permissions ?? 0)
+                )
+            )
+                .map(permission => `**${language.get(permission)}**`)
+                .join(", ");
 
             return {
                 title: language.get("MISSING_PERMISSIONS_BASE_TITLE"),
                 description: language.get(
                     missingPermissions.length === 1
-                        ? "MISSING_PERMISSIONS_CLIENT_PERMISSIONS_ONE"
-                        : "MISSING_PERMISSIONS_CLIENT_PERMISSIONS_OTHER",
+                        ? "MISSING_PERMISSIONS_CLIENT_PERMISSIONS_ONE_DESCRIPTION"
+                        : "MISSING_PERMISSIONS_CLIENT_PERMISSIONS_OTHER_DESCRIPTION",
                     {
                         type,
                         missingPermissions
@@ -212,7 +273,8 @@ export default class ApplicationCommand {
                     commandName_commandType_userId: {
                         commandName: this.name,
                         commandType: "APPLICATION_COMMAND",
-                        userId: interaction.user.id
+                        userId: (interaction.member?.user ?? interaction.user!)
+                            .id
                     }
                 }
             });
@@ -245,10 +307,14 @@ export default class ApplicationCommand {
      * @param _language The language to use when replying to the interaction.
      * @returns A tuple containing a boolean and an APIEmbed if the interaction is invalid, a boolean if the interaction is valid.
      */
-    public async preCheck(
-        _interaction: CommandInteraction,
-        _language: Language
-    ): Promise<[boolean, APIEmbed?]> {
+    public async preCheck({
+        interaction: _interaction,
+        language: _language
+    }: {
+        interaction: APIApplicationCommandInteraction;
+        shardId: number;
+        language: Language;
+    }): Promise<[boolean, APIEmbed?]> {
         return [true];
     }
 
@@ -257,8 +323,12 @@ export default class ApplicationCommand {
      * @param _interaction The interaction to run this command on.
      * @param _language The language to use when replying to the interaction.
      */
-    public async run(
-        _interaction: CommandInteraction,
-        _language: Language
-    ): Promise<any> {}
+    public async run({
+        interaction: _interaction,
+        language: _language
+    }: {
+        interaction: APIApplicationCommandInteraction;
+        shardId: number;
+        language: Language;
+    }): Promise<any> {}
 }

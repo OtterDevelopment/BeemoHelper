@@ -1,7 +1,9 @@
 import {
+    APIChatInputApplicationCommandInteraction,
     ApplicationCommandType,
-    ChatInputCommandInteraction
-} from "discord.js";
+    MessageFlags
+} from "@discordjs/core";
+import { DiscordSnowflake } from "@sapphire/snowflake";
 import Language from "../../../../lib/classes/Language.js";
 import ExtendedClient from "../../../../lib/extensions/ExtendedClient.js";
 import ApplicationCommand from "../../../../lib/classes/ApplicationCommand.js";
@@ -26,24 +28,40 @@ export default class Ping extends ApplicationCommand {
      * @param interaction The interaction to run this command on.
      * @param language The language to use when replying to the interaction.
      */
-    public override async run(
-        interaction: ChatInputCommandInteraction,
-        language: Language
-    ) {
-        const message = await interaction.reply({
-            content: language.get("PING"),
-            fetchReply: true,
-            ephemeral: true
-        });
+    public async run({
+        interaction,
+        language
+    }: {
+        interaction: APIChatInputApplicationCommandInteraction;
+        shardId: number;
+        language: Language;
+    }) {
+        await this.client.api.interactions.reply(
+            interaction.id,
+            interaction.token,
+            {
+                content: language.get("PING"),
+                flags: MessageFlags.Ephemeral
+            }
+        );
+
+        const message = await this.client.api.interactions.getOriginalReply(
+            interaction.application_id,
+            interaction.token
+        );
+
         const hostLatency =
-            message.createdTimestamp - interaction.createdTimestamp;
-        const apiLatency = Math.round(this.client.ws.ping);
-        return interaction.editReply({
-            content: language.get("PONG", {
-                apiLatency,
-                hostLatency,
-                roundTrip: hostLatency + apiLatency
-            })
-        });
+            new Date(message.timestamp).getTime() -
+            DiscordSnowflake.timestampFrom(interaction.id);
+
+        return this.client.api.interactions.editReply(
+            interaction.application_id,
+            interaction.token,
+            {
+                content: language.get("PONG", {
+                    hostLatency
+                })
+            }
+        );
     }
 }

@@ -1,61 +1,41 @@
-import { Interaction } from "discord.js";
+import {
+    APIInteraction,
+    GatewayDispatchEvents,
+    InteractionType,
+    WithIntrinsicProps
+} from "@discordjs/core";
 import EventHandler from "../../../lib/classes/EventHandler.js";
+import ExtendedClient from "../../../lib/extensions/ExtendedClient.js";
 
 export default class InteractionCreate extends EventHandler {
+    constructor(client: ExtendedClient) {
+        super(client, GatewayDispatchEvents.InteractionCreate);
+    }
+
     /**
-     * Handle the creation of an interaction.
-     * @param interaction The interaction that was created.
+     * Handle the creation of a new interaction.
      */
-    public override async run(interaction: Interaction) {
-        this.client.submitMetricToManager("interactions_created", "inc", 1, {
-            // eslint-disable-next-line no-nested-ternary
-            name: interaction.isMessageComponent()
-                ? interaction.customId
-                : interaction.isCommand()
-                ? interaction.commandName
-                : "unknown",
-            type: interaction.type.toString(),
-            shard: (this.client.shard?.ids[0] ?? 0).toString()
-        });
-        this.client.submitMetricToManager("user_locales", "inc", 1, {
-            locale: interaction.locale,
-            shard: (this.client.shard?.ids[0] ?? 0).toString()
+    public override async run({
+        data,
+        shardId
+    }: WithIntrinsicProps<APIInteraction>) {
+        this.client.logger.debug(2);
+
+        // This is very cursed, but it works.
+        const d = data.data as any;
+
+        this.client.submitMetric("interactions_created", "inc", 1, {
+            name: d?.name ?? d?.custom_id ?? "null",
+            type: data.type.toString(),
+            shard: shardId.toString()
         });
 
-        if (interaction.isCommand() || interaction.isContextMenuCommand())
+        if (data.type === InteractionType.ApplicationCommand)
             return this.client.applicationCommandHandler.handleApplicationCommand(
-                interaction
+                {
+                    data,
+                    shardId
+                }
             );
-        else if (interaction.isAutocomplete())
-            return this.client.autoCompleteHandler.handleAutoComplete(
-                interaction
-            );
-        else if (interaction.isButton())
-            return this.client.buttonHandler.handleButton(interaction);
-
-        if (interaction.isRepliable()) {
-            const userLanguage =
-                await this.client.prisma.userLanguage.findUnique({
-                    where: {
-                        userId: interaction.user.id
-                    }
-                });
-            const language = this.client.languageHandler.getLanguage(
-                userLanguage?.languageId || interaction.locale
-            );
-
-            return interaction.reply({
-                embeds: [
-                    {
-                        title: language.get("INVALID_INTERACTION_TITLE"),
-                        description: language.get(
-                            "INVALID_INTERACTION_DESCRIPTION"
-                        ),
-                        color: this.client.config.colors.error
-                    }
-                ],
-                ephemeral: true
-            });
-        }
     }
 }

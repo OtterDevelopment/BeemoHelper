@@ -4,6 +4,7 @@ declare global {
             NODE_ENV: "development" | "production";
 
             DISCORD_TOKEN: string;
+            APPLICATION_ID: string;
             SENTRY_DSN: string;
             DATABASE_URL: string;
 

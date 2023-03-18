@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readdirSync } from "fs";
+import Logger from "../classes/Logger.js";
 import Language from "../classes/Language.js";
 import Config from "../../config/bot.config.js";
 import ExtendedClient from "../extensions/ExtendedClient.js";
-import Logger from "../classes/Logger.js";
 
 export default class Functions {
     /** Our extended client. */

@@ -1,13 +1,15 @@
 import {
+    APIApplicationCommandInteraction,
     ApplicationCommandType,
-    CommandInteraction,
-    Interaction,
-    InteractionReplyOptions
-} from "discord.js";
+    MessageFlags,
+    RESTJSONErrorCodes,
+    RESTPostAPIWebhookWithTokenJSONBody,
+    WithIntrinsicProps
+} from "@discordjs/core";
+import { DiscordAPIError } from "@discordjs/rest";
 import Language from "./Language.js";
 import ApplicationCommand from "./ApplicationCommand.js";
 import ExtendedClient from "../extensions/ExtendedClient.js";
-import Logger from "./Logger.js";
 
 export default class ApplicationCommandHandler {
     /** Our extended client. */
@@ -70,69 +72,122 @@ export default class ApplicationCommandHandler {
      */
     public async registerApplicationCommands() {
         if (process.env.NODE_ENV === "production") {
-            const guildOnlyCommands: Record<string, ApplicationCommand[]> = {};
+            const guildOnlyCommands: Map<string, ApplicationCommand[]> =
+                new Map();
 
-            this.client.applicationCommands
+            [...this.client.applicationCommands.values()]
                 .filter(applicationCommand => applicationCommand.guilds.length)
                 .forEach(applicationCommand => {
-                    applicationCommand.guilds.forEach(guildId => {
-                        if (!guildOnlyCommands[guildId])
-                            guildOnlyCommands[guildId] = [];
-
-                        guildOnlyCommands[guildId].push(applicationCommand);
-                    });
+                    applicationCommand.guilds.forEach(guildId =>
+                        guildOnlyCommands.set(
+                            guildId,
+                            (guildOnlyCommands.get(guildId) || []).concat([
+                                applicationCommand
+                            ])
+                        )
+                    );
                 });
 
             return Promise.all([
-                this.client.application?.commands
-                    .set([], this.client.config.testGuildId)
-                    .catch(error => {
-                        if (error.code === 50001)
-                            this.client.logger.error(
-                                null,
-                                `I encountered DiscordAPIError: Missing Access in the test guild [${this.client.config.testGuildId}] when trying to delete a non-existent application command.`
-                            );
-                        else {
-                            Logger.error(error);
-                            Logger.sentry.captureWithExtras(error, {
+                this.client.api.applicationCommands
+                    .bulkOverwriteGuildCommands(
+                        process.env.APPLICATION_ID,
+                        this.client.config.testGuildId,
+                        []
+                    )
+                    .catch(async error => {
+                        if (error instanceof DiscordAPIError)
+                            if (error.code === RESTJSONErrorCodes.MissingAccess)
+                                this.client.logger.error(
+                                    null,
+                                    `I encountered DiscordAPIError: Missing Access in ${this.client.config.testGuildId} when trying to clear application commands in the test guild.`
+                                );
+
+                        await this.client.logger.sentry.captureWithExtras(
+                            error,
+                            {
                                 "Guild ID": this.client.config.testGuildId,
                                 "Application Command Count":
                                     this.client.applicationCommands.size,
                                 "Application Commands":
                                     this.client.applicationCommands
-                            });
-                        }
+                            }
+                        );
+                        throw error;
                     }),
-                this.client.application?.commands.set(
-                    this.client.applicationCommands
+                this.client.api.applicationCommands.bulkOverwriteGlobalCommands(
+                    process.env.APPLICATION_ID,
+                    [...this.client.applicationCommands.values()]
                         .filter(
                             applicationCommand =>
                                 !applicationCommand.guilds.length
                         )
                         .map(applicationCommand => applicationCommand.options)
                 ),
-                Object.entries(guildOnlyCommands).map(([key, value]) =>
-                    this.client.application?.commands.set(
-                        value
-                            .filter(
-                                applicationCommand =>
-                                    !applicationCommand.guilds.length
+                [...guildOnlyCommands.entries()].map(
+                    ([guildId, applicationCommands]) =>
+                        this.client.api.applicationCommands
+                            .bulkOverwriteGuildCommands(
+                                process.env.APPLICATION_ID,
+                                guildId,
+                                applicationCommands.map(
+                                    applicationCommand =>
+                                        applicationCommand.options
+                                )
                             )
-                            .map(
-                                applicationCommand => applicationCommand.options
-                            ),
-                        key
-                    )
+                            .catch(async error => {
+                                if (error instanceof DiscordAPIError)
+                                    if (
+                                        error.code ===
+                                        RESTJSONErrorCodes.MissingAccess
+                                    )
+                                        this.client.logger.error(
+                                            null,
+                                            `I encountered DiscordAPIError: Missing Access in ${this.client.config.testGuildId} when trying to set guild commands.`
+                                        );
+
+                                await this.client.logger.sentry.captureWithExtras(
+                                    error,
+                                    {
+                                        "Guild ID":
+                                            this.client.config.testGuildId,
+                                        "Application Command Count":
+                                            this.client.applicationCommands
+                                                .size,
+                                        "Application Commands":
+                                            this.client.applicationCommands
+                                    }
+                                );
+                                throw error;
+                            })
                 )
             ]);
         }
 
-        return this.client.application?.commands.set(
-            this.client.applicationCommands.map(
-                applicationCommand => applicationCommand.options
-            ),
-            this.client.config.testGuildId
-        );
+        return this.client.api.applicationCommands
+            .bulkOverwriteGuildCommands(
+                process.env.APPLICATION_ID,
+                this.client.config.testGuildId,
+                [...this.client.applicationCommands.values()].map(
+                    applicationCommand => applicationCommand.options
+                )
+            )
+            .catch(async error => {
+                if (error instanceof DiscordAPIError)
+                    if (error.code === RESTJSONErrorCodes.MissingAccess)
+                        this.client.logger.error(
+                            null,
+                            `I encountered DiscordAPIError: Missing Access in ${this.client.config.testGuildId} when trying to set application commands in the test guild.`
+                        );
+
+                await this.client.logger.sentry.captureWithExtras(error, {
+                    "Guild ID": this.client.config.testGuildId,
+                    "Application Command Count":
+                        this.client.applicationCommands.size,
+                    "Application Commands": this.client.applicationCommands
+                });
+                throw error;
+            });
     }
 
     /**
@@ -160,10 +215,13 @@ export default class ApplicationCommandHandler {
      * Handle an interaction properly to ensure that it can invoke an application command.
      * @param interaction The interaction that is attempting to invoke an application command.
      */
-    public async handleApplicationCommand(interaction: CommandInteraction) {
+    public async handleApplicationCommand({
+        data: interaction,
+        shardId
+    }: Omit<WithIntrinsicProps<APIApplicationCommandInteraction>, "api">) {
         const userLanguage = await this.client.prisma.userLanguage.findUnique({
             where: {
-                userId: interaction.user.id
+                userId: (interaction.member?.user ?? interaction.user!).id
             }
         });
         const language = this.client.languageHandler.getLanguage(
@@ -171,96 +229,141 @@ export default class ApplicationCommandHandler {
         );
 
         const applicationCommand = this.getApplicationCommand(
-            interaction.commandName
+            interaction.data.name
         );
 
         if (!applicationCommand) {
             this.client.logger.error(
                 null,
-                `${interaction.user.tag} [${interaction.user.id}] invoked application command ${interaction.commandName} but it does not exist.`
+                `${(interaction.member?.user ?? interaction.user!).username}#${
+                    (interaction.member?.user ?? interaction.user!)
+                        .discriminator
+                } [${
+                    (interaction.member?.user ?? interaction.user!).id
+                }] invoked application command ${
+                    interaction.data.name
+                } but it does not exist.`
             );
-            const sentryId =
+            const eventId =
                 await this.client.logger.sentry.captureWithInteraction(
                     new Error("Non existent application command invoked."),
-                    interaction as Interaction
+                    interaction
                 );
 
-            await this.client.application?.commands
-                .delete(
-                    interaction.commandName,
-                    process.env.NODE_ENV === "production"
-                        ? this.client.config.testGuildId
-                        : undefined
-                )
-                .catch(error => {
-                    if (error.code === 50001)
+            try {
+                if (process.env.NODE_ENV === "production")
+                    await this.client.api.applicationCommands.deleteGlobalCommand(
+                        interaction.application_id,
+                        interaction.data.id
+                    );
+                else
+                    await this.client.api.applicationCommands.deleteGuildCommand(
+                        interaction.application_id,
+                        interaction.data.id,
+                        interaction.guild_id ?? this.client.config.testGuildId
+                    );
+            } catch (error) {
+                if (error instanceof DiscordAPIError)
+                    if (error.code === RESTJSONErrorCodes.MissingAccess)
                         this.client.logger.error(
                             null,
                             `I encountered DiscordAPIError: Missing Access in the test guild [${this.client.config.testGuildId}] when trying to delete a non-existent application command.`
                         );
-                    else {
-                        Logger.error(error);
-                        Logger.sentry.captureWithExtras(error, {
-                            "Guild ID": this.client.config.testGuildId,
-                            "Application Command Count":
-                                this.client.applicationCommands.size,
-                            "Application Commands":
-                                this.client.applicationCommands
-                        });
-                    }
+
+                await this.client.logger.sentry.captureWithExtras(error, {
+                    "Guild ID": this.client.config.testGuildId,
+                    "Application Command Count":
+                        this.client.applicationCommands.size,
+                    "Application Commands": this.client.applicationCommands
                 });
+                throw error;
+            }
 
-            return interaction.reply({
-                embeds: [
-                    {
-                        title: language.get("NON_EXISTENT_TITLE"),
-                        description: language.get("NON_EXISTENT_DESCRIPTION", {
-                            name: interaction.commandName.toLowerCase(),
-                            type:
-                                interaction.commandType ===
-                                ApplicationCommandType.ChatInput
-                                    ? "slash command"
-                                    : "context menu",
-                            username: interaction.user.username
-                        }),
-                        footer: {
-                            text: `Sentry Event ID: ${sentryId}`
-                        },
-                        color: this.client.config.colors.error
-                    }
-                ],
-                ephemeral: true
-            });
-        }
-
-        const missingPermissions = await applicationCommand.validate(
-            interaction,
-            language
-        );
-        if (missingPermissions)
-            return interaction.reply({
-                embeds: [
-                    {
-                        ...missingPermissions,
-                        color: this.client.config.colors.error
-                    }
-                ],
-                ephemeral: true
-            });
-
-        const [preChecked, preCheckedResponse] =
-            await applicationCommand.preCheck(interaction, language);
-        if (!preChecked) {
-            if (preCheckedResponse)
-                await interaction.reply({
+            return this.client.api.interactions.reply(
+                interaction.id,
+                interaction.token,
+                {
                     embeds: [
                         {
-                            ...preCheckedResponse,
+                            title: language.get(
+                                "NON_EXISTENT_APPLICATION_COMMAND_TITLE",
+                                {
+                                    type:
+                                        interaction.data.type ===
+                                        ApplicationCommandType.ChatInput
+                                            ? "Slash Command"
+                                            : "Context Menu"
+                                }
+                            ),
+                            description: language.get(
+                                "NON_EXISTENT_APPLICATION_COMMAND_DESCRIPTION",
+                                {
+                                    name: interaction.data.name,
+                                    type:
+                                        interaction.data.type ===
+                                        ApplicationCommandType.ChatInput
+                                            ? "slash command"
+                                            : "context menu",
+                                    username: (
+                                        interaction.member?.user ??
+                                        interaction.user!
+                                    ).username
+                                }
+                            ),
+                            footer: {
+                                text: language.get("SENTRY_EVENT_ID_FOOTER", {
+                                    eventId
+                                })
+                            },
                             color: this.client.config.colors.error
                         }
                     ],
-                    ephemeral: true
-                });
+                    flags: MessageFlags.Ephemeral
+                }
+            );
+        }
+
+        const missingPermissions = await applicationCommand.validate({
+            interaction,
+            language,
+            shardId
+        });
+        if (missingPermissions)
+            return this.client.api.interactions.reply(
+                interaction.id,
+                interaction.token,
+                {
+                    embeds: [
+                        {
+                            ...missingPermissions,
+                            color: this.client.config.colors.error
+                        }
+                    ],
+                    flags: MessageFlags.Ephemeral
+                }
+            );
+
+        const [preChecked, preCheckedResponse] =
+            await applicationCommand.preCheck({
+                interaction,
+                language,
+                shardId
+            });
+        if (!preChecked) {
+            if (preCheckedResponse)
+                await this.client.api.interactions.reply(
+                    interaction.id,
+                    interaction.token,
+                    {
+                        embeds: [
+                            {
+                                ...preCheckedResponse,
+                                color: this.client.config.colors.error
+                            }
+                        ],
+                        flags: MessageFlags.Ephemeral
+                    }
+                );
 
             return;
         }
@@ -268,6 +371,7 @@ export default class ApplicationCommandHandler {
         return this.runApplicationCommand(
             applicationCommand,
             interaction,
+            shardId,
             language
         );
     }
@@ -280,46 +384,54 @@ export default class ApplicationCommandHandler {
      */
     private async runApplicationCommand(
         applicationCommand: ApplicationCommand,
-        interaction: CommandInteraction,
+        interaction: APIApplicationCommandInteraction,
+        shardId: number,
         language: Language
     ) {
-        if (this.cooldowns.has(interaction.user.id))
-            return interaction.reply({
-                embeds: [
-                    {
-                        title: language.get("COOLDOWN_ON_TYPE_TITLE", {
-                            type:
-                                applicationCommand.type ===
-                                ApplicationCommandType.ChatInput
-                                    ? "Slash Command"
-                                    : "Context Menu"
-                        }),
-                        description: language.get(
-                            "COOLDOWN_ON_TYPE_DESCRIPTION",
-                            {
+        if (
+            this.cooldowns.has(
+                (interaction.member?.user ?? interaction.user!).id
+            )
+        )
+            return this.client.api.interactions.reply(
+                interaction.id,
+                interaction.token,
+                {
+                    embeds: [
+                        {
+                            title: language.get("COOLDOWN_ON_TYPE_TITLE", {
                                 type:
                                     applicationCommand.type ===
                                     ApplicationCommandType.ChatInput
-                                        ? "slash command"
-                                        : "context menu"
-                            }
-                        ),
-                        color: this.client.config.colors.error
-                    }
-                ],
-                ephemeral: true
-            });
-
-        this.client.usersUsingBot.add(interaction.user.id);
+                                        ? "Slash Commands"
+                                        : "Context Menus"
+                            }),
+                            description: language.get(
+                                "COOLDOWN_ON_TYPE_DESCRIPTION",
+                                {
+                                    type:
+                                        applicationCommand.type ===
+                                        ApplicationCommandType.ChatInput
+                                            ? "slash command"
+                                            : "context menu"
+                                }
+                            ),
+                            color: this.client.config.colors.error
+                        }
+                    ],
+                    flags: MessageFlags.Ephemeral
+                }
+            );
 
         applicationCommand
-            .run(interaction, language)
+            .run({ interaction, language, shardId })
             .then(async () => {
                 if (applicationCommand.cooldown)
-                    await applicationCommand.applyCooldown(interaction.user.id);
+                    await applicationCommand.applyCooldown(
+                        (interaction.member?.user ?? interaction.user!).id
+                    );
 
-                this.client.usersUsingBot.delete(interaction.user.id);
-                this.client.submitMetricToManager("commands_used", "inc", 1, {
+                this.client.submitMetric("commands_used", "inc", 1, {
                     command: applicationCommand.name,
                     type:
                         applicationCommand.type ===
@@ -327,11 +439,11 @@ export default class ApplicationCommandHandler {
                             ? "slash"
                             : "context",
                     success: "true",
-                    shard: (this.client.shard?.ids[0] ?? 0).toString()
+                    shard: shardId.toString()
                 });
             })
             .catch(async error => {
-                this.client.submitMetricToManager("commands_used", "inc", 1, {
+                this.client.submitMetric("commands_used", "inc", 1, {
                     command: applicationCommand.name,
                     type:
                         applicationCommand.type ===
@@ -339,14 +451,14 @@ export default class ApplicationCommandHandler {
                             ? "slash"
                             : "context",
                     success: "false",
-                    shard: (this.client.shard?.ids[0] ?? 0).toString()
+                    shard: shardId.toString()
                 });
                 this.client.logger.error(error);
 
-                const sentryId =
+                const eventId =
                     await this.client.logger.sentry.captureWithInteraction(
                         error,
-                        interaction as Interaction
+                        interaction
                     );
 
                 const toSend = {
@@ -354,32 +466,51 @@ export default class ApplicationCommandHandler {
                         {
                             title: language.get("AN_ERROR_HAS_OCCURRED_TITLE"),
                             description: language.get(
-                                "AN_ERROR_HAS_OCCURRED_DESCRIPTION",
-                                {
-                                    name: interaction.commandName.toLowerCase(),
-                                    type:
-                                        interaction.commandType ===
-                                        ApplicationCommandType.ChatInput
-                                            ? "slash command"
-                                            : "context menu"
-                                }
+                                "AN_ERROR_HAS_OCCURRED_DESCRIPTION"
                             ),
                             footer: {
-                                text: `Sentry Event ID: ${sentryId}`
+                                text: language.get("SENTRY_EVENT_ID_FOOTER", {
+                                    eventId
+                                })
                             },
                             color: this.client.config.colors.error
                         }
                     ],
-                    ephemeral: true
-                } satisfies InteractionReplyOptions;
+                    flags: MessageFlags.Ephemeral
+                } satisfies RESTPostAPIWebhookWithTokenJSONBody;
 
-                if (interaction.isRepliable()) return interaction.reply(toSend);
-                else return interaction.followUp(toSend);
+                try {
+                    return await this.client.api.interactions.reply(
+                        interaction.id,
+                        interaction.token,
+                        toSend
+                    );
+                } catch (err) {
+                    if (
+                        err instanceof DiscordAPIError &&
+                        err.code ===
+                            RESTJSONErrorCodes.InteractionHasAlreadyBeenAcknowledged
+                    )
+                        return this.client.api.interactions.followUp(
+                            interaction.application_id,
+                            interaction.token,
+                            toSend
+                        );
+
+                    await this.client.logger.sentry.captureWithInteraction(
+                        err,
+                        interaction
+                    );
+                    throw err;
+                }
             });
 
-        this.cooldowns.add(interaction.user.id);
+        this.cooldowns.add((interaction.member?.user ?? interaction.user!).id);
         setTimeout(
-            () => this.cooldowns.delete(interaction.user.id),
+            () =>
+                this.cooldowns.delete(
+                    (interaction.member?.user ?? interaction.user!).id
+                ),
             this.coolDownTime
         );
     }

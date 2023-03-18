@@ -1,9 +1,9 @@
 import {
     ActivityType,
     GatewayIntentBits,
-    PresenceData,
-    PermissionResolvable
-} from "discord.js";
+    GatewayPresenceUpdateData,
+    PermissionFlagsBits
+} from "@discordjs/core";
 
 export default {
     /** The prefix the bot will use for text commands, the prefix is different depending on the NODE_ENV. */
@@ -37,7 +37,7 @@ export default {
                 name: "with /help"
             }
         ]
-    } as PresenceData,
+    } as GatewayPresenceUpdateData,
 
     /** The hastebin server that we should use for uploading logs. */
     hastebin: "https://haste.polars.cloud",
@@ -51,20 +51,16 @@ export default {
     },
 
     /** The list of intents the bot requires to function. */
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildBans,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.DirectMessages,
-        GatewayIntentBits.MessageContent
-    ],
-
+    intents:
+        GatewayIntentBits.Guilds |
+        GatewayIntentBits.GuildModeration |
+        GatewayIntentBits.GuildMembers |
+        GatewayIntentBits.GuildMessages |
+        GatewayIntentBits.DirectMessages |
+        GatewayIntentBits.MessageContent,
     /** A list of permissions that the bot needs to function at all. */
-    requiredPermissions: [
-        "EmbedLinks",
-        "SendMessages"
-    ] as PermissionResolvable[],
+    requiredPermissions:
+        PermissionFlagsBits.EmbedLinks | PermissionFlagsBits.SendMessages,
 
     otherConfig: {
         beemoGlobalLogChannelId: "833694540853936188",

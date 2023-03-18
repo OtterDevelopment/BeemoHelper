@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 
-import { WebhookClient, WebhookCreateMessageOptions } from "discord.js";
+import { RESTPostAPIWebhookWithTokenJSONBody } from "@discordjs/core";
 import {
     bgGreenBright,
     bgMagentaBright,
@@ -16,7 +16,7 @@ export class Logger {
     public readonly sentry;
 
     /** A Map<string, WebhookClient> whose key value pair correlates to the type of log we want and the WebhookClient for the log. */
-    private readonly webhooks: Map<string, WebhookClient>;
+    private readonly webhooks: Map<string, string>;
 
     /**
      * Create our logger.
@@ -95,7 +95,7 @@ export class Logger {
      */
     public async webhookLog(
         type: string,
-        options: WebhookCreateMessageOptions
+        options: RESTPostAPIWebhookWithTokenJSONBody
     ) {
         if (!type) throw new Error("No webhook type has been provided!");
         else if (!this.webhooks.get(type.toLowerCase())) {
@@ -105,14 +105,12 @@ export class Logger {
                     `No webhook URL has been provided for ${type}!`
                 );
 
-            this.webhooks.set(
-                type.toLowerCase(),
-                new WebhookClient({ url: webhookURL })
-            );
+            this.webhooks.set(type.toLowerCase(), webhookURL);
         }
 
         // We use ! here as if the webhook doesn't exist, we throw an error above.
-        return this.webhooks.get(type.toLowerCase())!.send(options);
+        // TODO: Properly implement webhooks.
+        // return this.webhooks.get(type.toLowerCase())!.send(options);
     }
 }
 

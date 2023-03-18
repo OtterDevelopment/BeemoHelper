@@ -1,7 +1,7 @@
 import { format } from "util";
 import { load } from "dotenv-extended";
 import * as Sentry from "@sentry/node";
-import { Interaction, Message } from "discord.js";
+import { APIInteraction, APIMessage } from "@discordjs/core";
 
 load({
     path: process.env.NODE_ENV === "production" ? ".env.prod" : ".env.dev"
@@ -25,14 +25,16 @@ export default function init() {
          */
         captureWithInteraction: (
             error: any,
-            interaction: Interaction
+            interaction: APIInteraction
         ): Promise<string> => {
             return new Promise((resolve, _) => {
                 Sentry.withScope(scope => {
                     scope.setExtra("Environment", process.env.NODE_ENV);
                     scope.setUser({
-                        username: interaction.user.tag,
-                        id: interaction.user.id
+                        username: (
+                            interaction.member?.user ?? interaction.user!
+                        ).username,
+                        id: (interaction.member?.user ?? interaction.user!).id
                     });
                     scope.setExtra("Interaction", format(interaction));
 
@@ -47,12 +49,15 @@ export default function init() {
          * @param message The message that caused the error.
          * @return The sentry error ID.
          */
-        captureWithMessage: (error: any, message: Message): Promise<string> => {
+        captureWithMessage: (
+            error: any,
+            message: APIMessage
+        ): Promise<string> => {
             return new Promise((resolve, _) => {
                 Sentry.withScope(scope => {
                     scope.setExtra("Environment", process.env.NODE_ENV);
                     scope.setUser({
-                        username: message.author.tag,
+                        username: `${message.author.username}#${message.author.discriminator}`,
                         id: message.author.id
                     });
                     scope.setExtra("Message", format(message));

@@ -1,9 +1,9 @@
-import { ClientEvents } from "discord.js";
+import { MappedEvents } from "@discordjs/core";
 import ExtendedClient from "../extensions/ExtendedClient.js";
 
 export default class EventHandler {
     /** The name of our event, this is what we will use to listen to the event. */
-    public readonly name: keyof ClientEvents;
+    public readonly name: keyof MappedEvents;
 
     /** Our extended client. */
     public readonly client: ExtendedClient;
@@ -22,7 +22,7 @@ export default class EventHandler {
      */
     constructor(
         client: ExtendedClient,
-        name: keyof ClientEvents,
+        name: keyof MappedEvents,
         once: boolean = false
     ) {
         this.name = name;
